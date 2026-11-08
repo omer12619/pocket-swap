@@ -257,6 +257,10 @@ const server = http.createServer(async (req, res) => {
       };
       res.writeHead(200, {
         'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+        'Cache-Control':
+          ext === '.html'
+            ? 'no-cache, no-store, must-revalidate'
+            : 'public, max-age=31536000, immutable',
       });
       return fs.createReadStream(filePath).pipe(res);
     }
@@ -264,7 +268,10 @@ const server = http.createServer(async (req, res) => {
     // SPA Fallback to dist/index.html
     const indexHtml = path.join(distDir, 'index.html');
     if (fs.existsSync(indexHtml)) {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      });
       return fs.createReadStream(indexHtml).pipe(res);
     }
   }

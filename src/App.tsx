@@ -1534,9 +1534,9 @@ export function App() {
         }`}
       >
         {/* TOP GAME HUD BAR */}
-        <header className="sticky top-0 z-30 shrink-0 bg-[#F5E9CE]/95 backdrop-blur-md border-b-2 border-[#D8C5A0] px-3.5 pt-2.5 pb-2 space-y-2">
-          {/* HUD ROW 1: Player Avatar + Full Name/XP + Core Status Pills */}
-          <div className="flex items-center justify-between gap-2">
+        <header className="sticky top-0 z-30 shrink-0 bg-[#F5E9CE]/95 backdrop-blur-md border-b-2 border-[#D8C5A0] px-4 py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            {/* Left: Player Avatar + Name + Level + Karma & XP */}
             <button
               type="button"
               onClick={() => {
@@ -1545,131 +1545,99 @@ export function App() {
               }}
               className="flex items-center gap-2.5 text-left group min-w-0 flex-1"
             >
-              <div className="relative shrink-0">
-                <div className="w-10 h-10 rounded-2xl bg-[#FFF9EB] border-2 border-[#4E9F6E] flex items-center justify-center text-xl shadow-sm group-hover:scale-105 transition-transform">
-                  {currentUser.avatar_emoji}
-                </div>
-                <span className="absolute -bottom-1 -right-1 px-1 py-0.2 rounded-md bg-[#4E9F6E] text-white text-[9px] font-extrabold shadow">
-                  Lv.{currentUser.level}
-                </span>
+              <div className="w-11 h-11 shrink-0 rounded-2xl bg-[#FFF9EB] border-2 border-[#4E9F6E] flex items-center justify-center text-2xl shadow-sm group-hover:scale-105 transition-transform">
+                {currentUser.avatar_emoji}
               </div>
 
               <div className="min-w-0 flex-1">
-                <span className="font-game text-sm font-bold text-[#4A3520] block truncate">
-                  {currentUser.display_name}
-                </span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <div className="w-16 h-1.5 rounded-full bg-[#E0CEAC] overflow-hidden shrink-0">
-                    <div
-                      className="h-full bg-[#4E9F6E] rounded-full transition-all duration-500"
-                      style={{
-                        width: `${Math.min(100, (currentUser.xp / 200) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="text-[10px] font-extrabold text-[#7C6246] whitespace-nowrap">
-                    {currentUser.xp} XP
+                <div className="flex items-center gap-1.5">
+                  <span className="font-game text-sm font-bold text-[#4A3520] truncate">
+                    {currentUser.display_name}
                   </span>
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#4E9F6E] text-white text-[10px] font-extrabold leading-none shrink-0">
+                    Lv.{currentUser.level}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 mt-1 text-[11px] font-extrabold text-[#7C6246]">
+                  <span className="inline-flex items-center gap-0.5 text-[#C88719] shrink-0">
+                    <Star className="w-3 h-3 fill-[#F6B93B] text-[#F6B93B]" />
+                    {currentUser.karma_score.toFixed(2)}
+                  </span>
+                  <span className="text-[#C7B087]">•</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-12 h-1.5 rounded-full bg-[#E0CEAC] overflow-hidden shrink-0">
+                      <div
+                        className="h-full bg-[#4E9F6E] rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(100, (currentUser.xp / 200) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-extrabold text-[#7C6246] whitespace-nowrap">
+                      {currentUser.xp} XP
+                    </span>
+                  </div>
                 </div>
               </div>
             </button>
 
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Activity & Notification Bell Pill */}
+            {/* Right: 3 Clean, Uniform Cozy Icon Action Buttons */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Cozy Quests Button */}
+              <button
+                type="button"
+                onClick={() => setIsQuestsModalOpen(true)}
+                className="relative h-9 px-2.5 rounded-xl bg-[#FFF6E0] border-2 border-[#F6B93B] flex items-center justify-center gap-1 shadow-sm hover:bg-white transition-colors"
+                title="Cozy Quests & Rewards"
+              >
+                <Trophy className="w-4 h-4 text-[#D9822B] shrink-0" />
+                <span className="hidden sm:inline font-game text-xs font-bold text-[#5C4328]">
+                  Quests
+                </span>
+                {claimableQuestsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#4E9F6E] text-white text-[9px] font-extrabold flex items-center justify-center shadow">
+                    {claimableQuestsCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Friends Hub Button */}
+              <button
+                type="button"
+                onClick={() => setIsFriendsModalOpen(true)}
+                className="relative h-9 px-2.5 rounded-xl bg-[#FFF9EB] border-2 border-[#D8C5A0] flex items-center justify-center gap-1 shadow-sm hover:bg-white transition-colors"
+                title="Friends & Trade Buddies"
+              >
+                <Users className="w-4 h-4 text-[#4E9F6E] shrink-0" />
+                <span className="font-game text-xs font-bold text-[#5C4328]">
+                  {acceptedFriendIds.length}
+                </span>
+                {incomingFriendRequestsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#FF7E67] text-white text-[9px] font-extrabold flex items-center justify-center shadow">
+                    {incomingFriendRequestsCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Activity & Notification Bell Button */}
               <button
                 type="button"
                 onClick={() => {
                   playCozySound('tap');
                   setIsActivityModalOpen(true);
                 }}
-                className="relative p-2 rounded-xl bg-[#FFF9EB] border-2 border-[#D8C5A0] flex items-center justify-center shadow-sm hover:bg-white transition-colors"
+                className="relative w-9 h-9 rounded-xl bg-[#FFF9EB] border-2 border-[#D8C5A0] flex items-center justify-center shadow-sm hover:bg-white transition-colors"
                 title="Village Activity & Alerts"
               >
                 <Bell className="w-4 h-4 text-[#5C4328]" />
                 {pendingTradesCount + incomingFriendRequestsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1 w-4 h-4 rounded-full bg-[#FF7E67] text-white text-[9px] font-extrabold flex items-center justify-center shadow">
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#FF7E67] text-white text-[9px] font-extrabold flex items-center justify-center shadow">
                     {pendingTradesCount + incomingFriendRequestsCount}
                   </span>
                 )}
               </button>
-
-              {/* Cozy Quests Pill */}
-              <button
-                type="button"
-                onClick={() => setIsQuestsModalOpen(true)}
-                className="relative px-2.5 py-1.5 rounded-xl bg-[#FFF6E0] border-2 border-[#F6B93B] flex items-center gap-1 shadow-sm hover:bg-white transition-colors whitespace-nowrap"
-                title="Cozy Quests & Rewards"
-              >
-                <Trophy className="w-3.5 h-3.5 text-[#D9822B] shrink-0" />
-                <span className="font-game text-[11px] font-bold text-[#5C4328]">
-                  Quests
-                </span>
-                {claimableQuestsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1 w-4 h-4 rounded-full bg-[#4E9F6E] text-white text-[9px] font-extrabold flex items-center justify-center shadow animate-bounce">
-                    {claimableQuestsCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Friends Hub Pill */}
-              <button
-                type="button"
-                onClick={() => setIsFriendsModalOpen(true)}
-                className="relative px-2 py-1.5 rounded-xl bg-[#FFF9EB] border-2 border-[#D8C5A0] flex items-center gap-1 shadow-sm hover:bg-white transition-colors whitespace-nowrap"
-                title="Friends & Trade Buddies"
-              >
-                <Users className="w-3.5 h-3.5 text-[#4E9F6E] shrink-0" />
-                <span className="font-game text-[11px] font-bold text-[#5C4328]">
-                  {acceptedFriendIds.length}
-                </span>
-                {incomingFriendRequestsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1 w-4 h-4 rounded-full bg-[#FF7E67] text-white text-[9px] font-extrabold flex items-center justify-center shadow">
-                    {incomingFriendRequestsCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Karma Pill */}
-              <button
-                type="button"
-                onClick={() => {
-                  setInspectedUserId(null);
-                  setActiveTab('passport');
-                }}
-                className="px-2 py-1.5 rounded-xl bg-[#FFF9EB] border-2 border-[#EED9B3] flex items-center gap-1 shadow-sm whitespace-nowrap"
-                title="Karma Score"
-              >
-                <Star className="w-3.5 h-3.5 fill-[#F6B93B] text-[#F6B93B] shrink-0" />
-                <span className="font-game text-[11px] font-bold text-[#5C4328]">
-                  {currentUser.karma_score.toFixed(2)}
-                </span>
-              </button>
             </div>
-          </div>
-
-          {/* HUD ROW 2: Live Location Radar Strip & Quick Account Switcher */}
-          <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-[#E5D3B3]/80">
-            <button
-              type="button"
-              onClick={() => setActiveTab('radar')}
-              className="px-2.5 py-1 rounded-xl bg-[#EBF7EE] hover:bg-[#D8F1DF] border border-[#9FD8B2] text-[#2F7A4C] flex items-center gap-1.5 text-[11px] font-extrabold transition-colors min-w-0"
-              title="Open Live Street & GPS Radar"
-            >
-              <MapPin className="w-3.5 h-3.5 shrink-0 text-[#2F7A4C]" />
-              <span className="truncate">{currentUser.location_name}</span>
-              <span className="text-[10px] text-[#4E9F6E] font-bold shrink-0">
-                • {radarRadiusKm}km Radar →
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsAuthModalOpen(true)}
-              className="px-2.5 py-1 rounded-xl bg-[#FFF9EB] hover:bg-white border border-[#D8C5A0] text-[#5C4328] text-[11px] font-extrabold flex items-center gap-1 shrink-0 whitespace-nowrap transition-colors"
-            >
-              <UserPlus className="w-3 h-3 text-[#4E9F6E]" />
-              <span>Switch Villager</span>
-            </button>
           </div>
         </header>
 
