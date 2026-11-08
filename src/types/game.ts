@@ -32,6 +32,8 @@ export interface UserProfile {
   longitude: number;
   location_name: string;
   badges: string[];
+  email?: string;
+  passcode_pin?: string;
 }
 
 export interface FriendConnection {
@@ -70,6 +72,7 @@ export interface TradeItem {
   condition_notes: string;
   media_url: string;
   media_type: 'image' | 'video';
+  gallery_urls?: string[];
   wishlist_hint: string;
   is_for_trade: boolean;
   latitude: number;

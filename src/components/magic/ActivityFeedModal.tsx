@@ -9,6 +9,8 @@ import {
   Sparkles,
   Volume2,
   VolumeX,
+  Download,
+  BellRing,
 } from 'lucide-react';
 import {
   FriendConnection,
@@ -25,6 +27,10 @@ interface ActivityFeedModalProps {
   matchingItems: TradeItem[];
   soundEnabled: boolean;
   onToggleSound: () => void;
+  canInstallPwa?: boolean;
+  onInstallPwa?: () => void;
+  browserNotifsEnabled?: boolean;
+  onEnableBrowserNotifs?: () => void;
   onClose: () => void;
   onOpenTradeChat: (tradeId: string) => void;
   onOpenFriends: () => void;
@@ -39,6 +45,10 @@ export const ActivityFeedModal: React.FC<ActivityFeedModalProps> = ({
   matchingItems,
   soundEnabled,
   onToggleSound,
+  canInstallPwa = false,
+  onInstallPwa,
+  browserNotifsEnabled = false,
+  onEnableBrowserNotifs,
   onClose,
   onOpenTradeChat,
   onOpenFriends,
@@ -111,6 +121,45 @@ export const ActivityFeedModal: React.FC<ActivityFeedModalProps> = ({
           </div>
 
           <div className="p-4 overflow-y-auto space-y-3.5">
+            {/* App Installation & Push Notification Banner */}
+            <div className="p-3 rounded-2xl bg-[#FFFDF7] border-2 border-[#D8C5A0] flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <BellRing className="w-4 h-4 text-[#4E9F6E] shrink-0" />
+                <div>
+                  <span className="font-game text-xs font-bold text-[#4A3520] block">
+                    App & Push Notification Settings
+                  </span>
+                  <span className="text-[10px] font-bold text-[#7C6246]">
+                    {browserNotifsEnabled
+                      ? '🟢 Live browser trade notifications enabled'
+                      : 'Enable alerts for instant swap & chat notifications'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {!browserNotifsEnabled && onEnableBrowserNotifs && (
+                  <button
+                    type="button"
+                    onClick={onEnableBrowserNotifs}
+                    className="px-2.5 py-1.5 rounded-xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white text-[10px] font-extrabold flex items-center gap-1"
+                  >
+                    <Bell className="w-3 h-3" />
+                    <span>Enable Alerts</span>
+                  </button>
+                )}
+                {canInstallPwa && onInstallPwa && (
+                  <button
+                    type="button"
+                    onClick={onInstallPwa}
+                    className="px-2.5 py-1.5 rounded-xl bg-[#F6B93B] hover:bg-[#E5A930] text-[#4A3520] text-[10px] font-extrabold flex items-center gap-1"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Install App</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* 1. Incoming Friend Requests */}
             {incomingFriends.length > 0 && (
               <div className="space-y-2">

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -11,6 +11,7 @@ import {
   Calendar,
   Tag,
   Package,
+  Plus,
 } from 'lucide-react';
 import {
   ItemCategory,
@@ -30,8 +31,10 @@ import {
 interface UploadItemModalProps {
   isOpen: boolean;
   currentUser: UserProfile;
+  editingItem?: TradeItem | null;
   onClose: () => void;
   onAddItem: (newItem: TradeItem) => void;
+  onUpdateItem?: (updatedItem: TradeItem) => void;
 }
 
 const CATEGORIES: Exclude<ItemCategory, 'All'>[] = [
@@ -96,8 +99,10 @@ const QUICK_PRESETS = [
 export const UploadItemModal: React.FC<UploadItemModalProps> = ({
   isOpen,
   currentUser,
+  editingItem = null,
   onClose,
   onAddItem,
+  onUpdateItem,
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -113,14 +118,86 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
   const [wishlistHint, setWishlistHint] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
+  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [compressionStats, setCompressionStats] =
     useState<OptimizedMediaResult | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const extraPhotoInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (editingItem) {
+      setTitle(editingItem.title);
+      setDescription(editingItem.description);
+      setCategory(editingItem.category);
+      setCondition(editingItem.condition);
+      setRarity(editingItem.rarity);
+      setYearMade(editingItem.year_made || 2023);
+      setBrand(editingItem.brand || '');
+      setAccessoriesIncluded(
+        editingItem.accessories_included || 'Original Box & Accessories'
+      );
+      setConditionNotes(editingItem.condition_notes || '');
+      setWishlistHint(editingItem.wishlist_hint || '');
+      setMediaUrl(editingItem.media_url);
+      setMediaType(editingItem.media_type);
+      setGalleryUrls(editingItem.gallery_urls || []);
+      setCompressionStats(null);
+      setMediaError(null);
+    } else if (isOpen) {
+      setTitle('');
+      setDescription('');
+      setBrand('');
+      setYearMade(2023);
+      setAccessoriesIncluded('Original Box & Accessories');
+      setConditionNotes('');
+      setWishlistHint('');
+      setMediaUrl('');
+      setGalleryUrls([]);
+      setCompressionStats(null);
+      setMediaError(null);
+    }
+  }, [editingItem, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleExtraPhotoUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file || galleryUrls.length >= 3) return;
+    setUploading(true);
+    try {
+      const optimized = await optimizeImageFile(file);
+      const supabase = getSupabaseClient();
+      if (supabase && optimized.blob) {
+        const filePath = `${currentUser.id}/gallery-${Date.now()}.webp`;
+        const { error } = await supabase.storage
+          .from('item-media')
+          .upload(filePath, optimized.blob, {
+            upsert: true,
+            contentType: 'image/webp',
+          });
+        if (!error) {
+          const { data } = supabase.storage
+            .from('item-media')
+            .getPublicUrl(filePath);
+          if (data?.publicUrl) {
+            setGalleryUrls((prev) => [...prev, data.publicUrl]);
+            setUploading(false);
+            return;
+          }
+        }
+      }
+      setGalleryUrls((prev) => [...prev, optimized.dataUrl]);
+    } catch {
+      // Ignore extra photo error
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -197,6 +274,32 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
       mediaUrl.trim() ||
       'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=900&q=80';
 
+    if (editingItem && onUpdateItem) {
+      const updatedItem: TradeItem = {
+        ...editingItem,
+        title: title.trim(),
+        description:
+          description.trim() ||
+          'Stored safely in my cozy collection! Let me know what you want to trade.',
+        category,
+        condition,
+        rarity,
+        year_made: Number(yearMade) || 2023,
+        brand: brand.trim() || 'Original Maker',
+        accessories_included: accessoriesIncluded.trim() || 'Item Only',
+        condition_notes:
+          conditionNotes.trim() ||
+          'Tested and verified in great working condition.',
+        media_url: finalMediaUrl,
+        media_type: mediaType,
+        gallery_urls: galleryUrls.length > 0 ? galleryUrls : undefined,
+        wishlist_hint: wishlistHint.trim() || 'Open to any fun local offers!',
+      };
+      onUpdateItem(updatedItem);
+      onClose();
+      return;
+    }
+
     const newItem: TradeItem = {
       id: `item-${Date.now()}`,
       owner_id: currentUser.id,
@@ -219,6 +322,7 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
         'Tested and verified in great working condition.',
       media_url: finalMediaUrl,
       media_type: mediaType,
+      gallery_urls: galleryUrls.length > 0 ? galleryUrls : undefined,
       wishlist_hint: wishlistHint.trim() || 'Open to any fun local offers!',
       is_for_trade: true,
       latitude: currentUser.latitude + (Math.random() - 0.5) * 0.003,
@@ -239,6 +343,7 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
     setConditionNotes('');
     setWishlistHint('');
     setMediaUrl('');
+    setGalleryUrls([]);
     setCompressionStats(null);
     setMediaError(null);
     onClose();
@@ -256,13 +361,17 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
           {/* Header */}
           <div className="sticky top-0 z-20 flex items-center justify-between px-5 py-3.5 bg-[#F5E9CE] border-b-2 border-[#D8C5A0]">
             <div className="flex items-center gap-2">
-              <span className="text-xl">🎒</span>
+              <span className="text-xl">{editingItem ? '✏️' : '🎒'}</span>
               <div>
                 <h2 className="font-game text-lg font-bold text-[#4A3520]">
-                  Add Item & Provenance Specs
+                  {editingItem
+                    ? 'Edit Item & Multi-Photo Gallery'
+                    : 'Add Item & Provenance Specs'}
                 </h2>
                 <p className="text-[11px] font-bold text-[#7C6246]">
-                  Include Year, Condition & Details • Earn +25 XP!
+                  {editingItem
+                    ? 'Update details, condition, wishlist or add extra angle photos'
+                    : 'Include Year, Condition & Details • Earn +25 XP!'}
                 </p>
               </div>
             </div>
@@ -396,6 +505,58 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
                   </div>
                 </button>
               )}
+
+              {/* Extra Angle Photos Strip (Up to 3 extra photos = 4 total) */}
+              <div className="mt-2.5">
+                <input
+                  ref={extraPhotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleExtraPhotoUpload}
+                  className="hidden"
+                />
+                <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-[#7C6246] mb-1.5">
+                  <span>📸 Extra Angle Photos (Back, Close-up, Box)</span>
+                  <span>{galleryUrls.length} / 3 Extra</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {galleryUrls.map((gUrl, idx) => (
+                    <div
+                      key={idx}
+                      className="relative aspect-square rounded-xl overflow-hidden border-2 border-[#4E9F6E] bg-white"
+                    >
+                      <img
+                        src={gUrl}
+                        alt={`Angle ${idx + 2}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setGalleryUrls((prev) =>
+                            prev.filter((_, i) => i !== idx)
+                          )
+                        }
+                        className="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/70 text-white text-[9px] flex items-center justify-center"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {galleryUrls.length < 3 && (
+                    <button
+                      type="button"
+                      onClick={() => extraPhotoInputRef.current?.click()}
+                      className="aspect-square rounded-xl border-2 border-dashed border-[#B89F72] bg-[#FFFDF7] hover:bg-[#F5E9CE] flex flex-col items-center justify-center text-[#7C6246] transition-colors"
+                    >
+                      <Plus className="w-4 h-4 text-[#4E9F6E]" />
+                      <span className="text-[9px] font-extrabold mt-0.5">
+                        + Angle
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Item Title */}
@@ -580,7 +741,11 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
               className="w-full py-3.5 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-sm font-bold shadow-cozy-green active:translate-y-0.5 transition-all flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
-              <span>Put Item in Pocket Inventory (+25 XP)</span>
+              <span>
+                {editingItem
+                  ? 'Save Item Changes'
+                  : 'Put Item in Pocket Inventory (+25 XP)'}
+              </span>
             </button>
           </form>
         </motion.div>

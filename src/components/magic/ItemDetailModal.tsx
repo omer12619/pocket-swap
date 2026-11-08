@@ -12,6 +12,8 @@ import {
   Send,
   Flag,
   Ban,
+  Share2,
+  Pencil,
 } from 'lucide-react';
 import { TradeItem } from '../../types/game';
 
@@ -23,6 +25,8 @@ interface ItemDetailModalProps {
   onAskQuestion: (item: TradeItem, questionText: string) => void;
   onReportItem?: (item: TradeItem) => void;
   onBlockUser?: (ownerId: string, ownerName: string) => void;
+  onShareItem?: (item: TradeItem) => void;
+  onEditItem?: (item: TradeItem) => void;
 }
 
 export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
@@ -33,11 +37,20 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   onAskQuestion,
   onReportItem,
   onBlockUser,
+  onShareItem,
+  onEditItem,
 }) => {
   const [questionText, setQuestionText] = useState('');
   const [activeAngleIdx, setActiveAngleIdx] = useState(0);
+  const [selectedPhotoIdx, setSelectedPhotoIdx] = useState(0);
 
   if (!item) return null;
+
+  const allPhotos = [
+    item.media_url,
+    ...(item.gallery_urls ? item.gallery_urls.filter(Boolean) : []),
+  ];
+  const currentPhotoUrl = allPhotos[selectedPhotoIdx] || item.media_url;
 
   const currentYear = new Date().getFullYear();
   const ageYears = Math.max(0, currentYear - (item.year_made || 2023));
@@ -81,16 +94,29 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-full bg-[#FFF9EB] border-2 border-[#D8C5A0] flex items-center justify-center text-[#5C4328] hover:bg-[#FF7E67] hover:text-white"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              {onShareItem && (
+                <button
+                  type="button"
+                  onClick={() => onShareItem(item)}
+                  title="Share Item / QR Code"
+                  className="px-2.5 py-1.5 rounded-full bg-[#FFF9EB] border-2 border-[#D8C5A0] flex items-center gap-1 text-[11px] font-extrabold text-[#4E9F6E] hover:bg-[#4E9F6E] hover:text-white transition-colors"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Share</span>
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-[#FFF9EB] border-2 border-[#D8C5A0] flex items-center justify-center text-[#5C4328] hover:bg-[#FF7E67] hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           <div className="p-4 space-y-4">
-            {/* Media Showcase with Multi-Angle Switcher */}
+            {/* Media Showcase with Multi-Angle & Multi-Photo Switcher */}
             <div className="space-y-2">
               <div className="relative rounded-2xl overflow-hidden bg-[#2D241C] aspect-[4/3] border-2 border-[#D8C5A0]">
                 {item.media_type === 'video' ? (
@@ -104,7 +130,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   />
                 ) : (
                   <img
-                    src={item.media_url}
+                    src={currentPhotoUrl}
                     alt={item.title}
                     className={`w-full h-full object-cover transition-transform duration-500 ${
                       activeAngleIdx === 1
@@ -124,6 +150,36 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* Multi-Photo Gallery Thumbnails (when additional photos exist) */}
+              {item.media_type === 'image' && allPhotos.length > 1 && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  {allPhotos.map((photoUrl, idx) => (
+                    <button
+                      key={`${photoUrl}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPhotoIdx(idx);
+                        setActiveAngleIdx(0);
+                      }}
+                      className={`relative w-14 h-14 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
+                        selectedPhotoIdx === idx
+                          ? 'border-[#4E9F6E] ring-2 ring-[#4E9F6E]/40 scale-105'
+                          : 'border-[#D8C5A0] opacity-75 hover:opacity-100'
+                      }`}
+                    >
+                      <img
+                        src={photoUrl}
+                        alt={`Angle ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/65 text-white text-[9px] font-extrabold">
+                        #{idx + 1}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {item.media_type === 'image' && (
                 <div className="grid grid-cols-3 gap-1.5">
@@ -268,8 +324,34 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               </form>
             )}
 
-            {/* Primary Offer Trade Button */}
-            {!isOwnItem && (
+            {/* Primary Offer Trade Button OR Owner Edit/Share Controls */}
+            {isOwnItem ? (
+              <div className="grid grid-cols-2 gap-2">
+                {onEditItem && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onEditItem(item);
+                    }}
+                    className="py-3 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-cozy-green flex items-center justify-center gap-1.5"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    <span>Edit Item & Photos</span>
+                  </button>
+                )}
+                {onShareItem && (
+                  <button
+                    type="button"
+                    onClick={() => onShareItem(item)}
+                    className="py-3 rounded-2xl bg-[#5C4328] hover:bg-[#4A3520] text-white font-game text-xs font-bold flex items-center justify-center gap-1.5"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span>Share Link & QR</span>
+                  </button>
+                )}
+              </div>
+            ) : (
               <button
                 type="button"
                 onClick={() => {

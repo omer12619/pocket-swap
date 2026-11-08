@@ -11,6 +11,8 @@ import {
   Package,
   Info,
   Trash2,
+  Share2,
+  Pencil,
 } from 'lucide-react';
 import { ItemRarity, TradeItem } from '../../types/game';
 
@@ -26,6 +28,8 @@ interface MagicGameCardProps {
   onDeleteItem?: (itemId: string) => void;
   onInspectProfile?: (ownerId: string) => void;
   onLikeItem?: (itemId: string) => void;
+  onShareItem?: (item: TradeItem) => void;
+  onEditItem?: (item: TradeItem) => void;
 }
 
 const RARITY_STYLES: Record<
@@ -80,6 +84,8 @@ export const MagicGameCard: React.FC<MagicGameCardProps> = ({
   onDeleteItem,
   onInspectProfile,
   onLikeItem,
+  onShareItem,
+  onEditItem,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -244,7 +250,7 @@ export const MagicGameCard: React.FC<MagicGameCardProps> = ({
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-[#5C4328]">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#F5E9CE] border border-[#D8C5A0]">
               <Package className="w-3 h-3 text-[#4E9F6E]" />
-              <span className="truncate max-w-[170px]">
+              <span className="truncate max-w-[140px]">
                 {item.accessories_included || 'Item Only'}
               </span>
             </span>
@@ -256,6 +262,20 @@ export const MagicGameCard: React.FC<MagicGameCardProps> = ({
               <Info className="w-3 h-3" />
               <span>Specs & Q&A</span>
             </button>
+            {onShareItem && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShareItem(item);
+                }}
+                title="Share item link or QR code"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#FFF9EB] hover:bg-[#F5E9CE] border border-[#D8C5A0] text-[#5C4328] font-extrabold transition-colors"
+              >
+                <Share2 className="w-3 h-3 text-[#FF7E67]" />
+                <span>Share</span>
+              </button>
+            )}
           </div>
 
           {/* Cozy Wishlist Bubble */}
@@ -333,18 +353,28 @@ export const MagicGameCard: React.FC<MagicGameCardProps> = ({
           </button>
 
           {isOwnItem ? (
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
                 onClick={() => onToggleForTrade?.(item.id)}
-                className={`px-3 py-2 rounded-2xl text-xs font-extrabold whitespace-nowrap transition-all active:translate-y-0.5 ${
+                className={`px-2.5 py-2 rounded-2xl text-[11px] font-extrabold whitespace-nowrap transition-all active:translate-y-0.5 ${
                   item.is_for_trade
                     ? 'bg-[#EBF7EE] text-[#2F7A4C] border-2 border-[#8BD1A0]'
                     : 'bg-[#F3E9D7] text-[#8C755B] border-2 border-[#D8C5A0]'
                 }`}
               >
-                {item.is_for_trade ? '🟢 Up for Trade' : '🔒 In Vault'}
+                {item.is_for_trade ? '🟢 Trade' : '🔒 Vault'}
               </button>
+              {onEditItem && (
+                <button
+                  type="button"
+                  onClick={() => onEditItem(item)}
+                  title="Edit item details & photos"
+                  className="p-2 rounded-2xl bg-[#FFF6E0] hover:bg-[#F6B93B] text-[#8C5800] border border-[#EED9B3] transition-colors shrink-0"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
               {onDeleteItem && (
                 <button
                   type="button"

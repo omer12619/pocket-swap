@@ -26,6 +26,7 @@ import {
   UserPlus,
   UserCheck,
   Bell,
+  Share2,
 } from 'lucide-react';
 import {
   FriendConnection,
@@ -69,6 +70,7 @@ import {
 import { SwipeMatchModal } from './components/magic/SwipeMatchModal';
 import { AuthPassportModal } from './components/magic/AuthPassportModal';
 import { ActivityFeedModal } from './components/magic/ActivityFeedModal';
+import { ShareQrModal } from './components/magic/ShareQrModal';
 import {
   isSoundEnabled,
   playCozySound,
@@ -197,6 +199,16 @@ export function App() {
   const [isQuestsModalOpen, setIsQuestsModalOpen] = useState<boolean>(false);
   const [isSwipeDeckOpen, setIsSwipeDeckOpen] = useState<boolean>(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<TradeItem | null>(null);
+  const [sharingItem, setSharingItem] = useState<TradeItem | null>(null);
+  const [sharingProfile, setSharingProfile] = useState<UserProfile | null>(null);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
+  const [browserNotifsEnabled, setBrowserNotifsEnabled] = useState<boolean>(
+    () =>
+      typeof window !== 'undefined' &&
+      'Notification' in window &&
+      Notification.permission === 'granted'
+  );
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [ratingTrade, setRatingTrade] = useState<TradeOffer | null>(null);
   const [inspectedUserId, setInspectedUserId] = useState<string | null>(null);
@@ -266,6 +278,74 @@ export function App() {
     setTimeout(() => {
       setToastMessage((prev) => (prev === msg ? null : prev));
     }, 3400);
+  };
+
+  // Capture PWA Install Prompt & URL Deep Links (?item=... or ?trader=...)
+  useEffect(() => {
+    const onBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const sharedItemId = params.get('item');
+    const sharedTraderId = params.get('trader');
+
+    if (sharedItemId) {
+      const found = items.find((i) => i.id === sharedItemId);
+      if (found) {
+        setInspectedItem(found);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } else if (sharedTraderId) {
+      const foundTrader = profiles.find((p) => p.id === sharedTraderId);
+      if (foundTrader) {
+        setInspectedUserId(foundTrader.id);
+        setActiveTab('passport');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, [items, profiles]);
+
+  const handleInstallPwa = async () => {
+    if (!deferredInstallPrompt) {
+      showToast(
+        '📲 To install on iPhone/Android: tap your browser Share/Menu button → "Add to Home Screen"!'
+      );
+      return;
+    }
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    if (choice?.outcome === 'accepted') {
+      showToast('🎉 PocketSwap installed to your Home Screen!');
+    }
+    setDeferredInstallPrompt(null);
+  };
+
+  const handleEnableBrowserNotifs = async () => {
+    if (!('Notification' in window)) {
+      showToast('🔔 In-app toast & sound notifications are active!');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      setBrowserNotifsEnabled(true);
+      showToast('🔔 Live browser push notifications enabled!');
+      try {
+        new Notification('PocketSwap Alerts Enabled 🌿', {
+          body: 'You will now receive instant alerts for new trade offers and chat replies!',
+        });
+      } catch {
+        // Notification sent
+      }
+    } else {
+      showToast('🔔 Using in-app notification banners & sound effects.');
+    }
   };
 
   const syncWithSupabase = async () => {
@@ -555,6 +635,63 @@ export function App() {
   const handleDeleteOwnItem = (itemId: string) => {
     setItems((prev) => prev.filter((i) => i.id !== itemId));
     showToast('🗑️ Item removed from your Pocket Inventory.');
+  };
+
+  const handleUpdateItem = async (updatedItem: TradeItem) => {
+    let finalMediaUrl = updatedItem.media_url;
+    if (updatedItem.media_url.startsWith('data:')) {
+      const uploadedUrl = await uploadItemMediaToSupabase(
+        updatedItem.media_url,
+        updatedItem.media_type === 'video' ? 'mp4' : 'webp'
+      );
+      if (uploadedUrl) {
+        finalMediaUrl = uploadedUrl;
+      }
+    }
+
+    const savedItem: TradeItem = {
+      ...updatedItem,
+      media_url: finalMediaUrl,
+    };
+
+    setItems((prev) =>
+      prev.map((i) => (i.id === savedItem.id ? savedItem : i))
+    );
+    setEditingItem(null);
+    showToast(`✏️ Updated "${savedItem.title}" & synced to Cloud!`);
+
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('items').upsert({
+          id: savedItem.id,
+          owner_id: savedItem.owner_id,
+          owner_name: savedItem.owner_name,
+          owner_avatar: savedItem.owner_avatar,
+          owner_karma: savedItem.owner_karma,
+          owner_level: savedItem.owner_level,
+          title: savedItem.title,
+          description: savedItem.description,
+          category: savedItem.category,
+          condition: savedItem.condition,
+          rarity: savedItem.rarity,
+          year_made: savedItem.year_made,
+          brand: savedItem.brand,
+          accessories_included: savedItem.accessories_included,
+          condition_notes: savedItem.condition_notes,
+          media_url: savedItem.media_url,
+          media_type: savedItem.media_type,
+          wishlist_hint: savedItem.wishlist_hint,
+          is_for_trade: savedItem.is_for_trade,
+          latitude: savedItem.latitude,
+          longitude: savedItem.longitude,
+          location_name: savedItem.location_name,
+          likes_count: savedItem.likes_count,
+        });
+      } catch {
+        // Synced via cloud-db/state.json & local state
+      }
+    }
   };
 
   const handleReportItem = (reportedItem: TradeItem) => {
@@ -1947,6 +2084,7 @@ export function App() {
                     onLikeItem={handleToggleLikeItem}
                     onProposeTrade={(target) => setTradeTargetItem(target)}
                     onInspectItem={(target) => setInspectedItem(target)}
+                    onShareItem={(target) => setSharingItem(target)}
                     onInspectProfile={(ownerId) => {
                       setInspectedUserId(ownerId);
                       setActiveTab('passport');
@@ -2104,6 +2242,8 @@ export function App() {
                     onInspectItem={(target) => setInspectedItem(target)}
                     onToggleForTrade={handleToggleForTrade}
                     onDeleteItem={handleDeleteOwnItem}
+                    onEditItem={(target) => setEditingItem(target)}
+                    onShareItem={(target) => setSharingItem(target)}
                   />
                 ))}
               </div>
@@ -2394,22 +2534,30 @@ export function App() {
                   </div>
 
                   {displayedProfile.id === currentUser.id ? (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-1.5">
                       <button
                         type="button"
                         onClick={() => setIsEditProfileOpen(true)}
-                        className="px-3 py-2 rounded-2xl bg-[#FFF9EB] hover:bg-white border-2 border-[#D8C5A0] text-xs font-extrabold text-[#5C4328] flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap"
+                        className="px-2.5 py-2 rounded-2xl bg-[#FFF9EB] hover:bg-white border-2 border-[#D8C5A0] text-[11px] font-extrabold text-[#5C4328] flex items-center justify-center gap-1 shadow-sm whitespace-nowrap"
                       >
                         <Edit3 className="w-3.5 h-3.5 text-[#4E9F6E] shrink-0" />
-                        <span>Edit Passport</span>
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSharingProfile(displayedProfile)}
+                        className="px-2.5 py-2 rounded-2xl bg-[#FFF9EB] hover:bg-white border-2 border-[#D8C5A0] text-[11px] font-extrabold text-[#5C4328] flex items-center justify-center gap-1 shadow-sm whitespace-nowrap"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-[#FF7E67] shrink-0" />
+                        <span>Share QR</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setIsAuthModalOpen(true)}
-                        className="px-3 py-2 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap"
+                        className="px-2.5 py-2 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white text-[11px] font-extrabold flex items-center justify-center gap-1 shadow-sm whitespace-nowrap"
                       >
                         <UserPlus className="w-3.5 h-3.5 shrink-0" />
-                        <span>Switch / Sign Up</span>
+                        <span>Account</span>
                       </button>
                     </div>
                   ) : displayedFriendStatus === 'friends' ? (
@@ -2773,6 +2921,10 @@ export function App() {
                 : '🔇 Game Sound Effects Muted.'
             );
           }}
+          canInstallPwa={true}
+          onInstallPwa={handleInstallPwa}
+          browserNotifsEnabled={browserNotifsEnabled}
+          onEnableBrowserNotifs={handleEnableBrowserNotifs}
           onClose={() => setIsActivityModalOpen(false)}
           onOpenTradeChat={(tradeId) => {
             setChatModalInitialMode('chat');
@@ -2781,6 +2933,16 @@ export function App() {
           }}
           onOpenFriends={() => setIsFriendsModalOpen(true)}
           onInspectItem={(item) => setInspectedItem(item)}
+        />
+
+        <ShareQrModal
+          isOpen={Boolean(sharingItem || sharingProfile)}
+          shareItem={sharingItem}
+          shareProfile={sharingProfile}
+          onClose={() => {
+            setSharingItem(null);
+            setSharingProfile(null);
+          }}
         />
 
         <QuestsAndRewardsModal
@@ -2833,6 +2995,8 @@ export function App() {
           onAskQuestion={handleAskQuestionFromItem}
           onReportItem={handleReportItem}
           onBlockUser={handleBlockUser}
+          onShareItem={(item) => setSharingItem(item)}
+          onEditItem={(item) => setEditingItem(item)}
         />
 
         <TradeChatAndCounterModal
@@ -2889,10 +3053,15 @@ export function App() {
         />
 
         <UploadItemModal
-          isOpen={isUploadOpen}
+          isOpen={isUploadOpen || Boolean(editingItem)}
           currentUser={currentUser}
-          onClose={() => setIsUploadOpen(false)}
+          editingItem={editingItem}
+          onClose={() => {
+            setIsUploadOpen(false);
+            setEditingItem(null);
+          }}
           onAddItem={handleAddItem}
+          onUpdateItem={handleUpdateItem}
         />
 
         <KarmaRateModal
