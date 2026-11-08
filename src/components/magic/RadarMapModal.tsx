@@ -137,29 +137,12 @@ export const RadarMapView: React.FC<RadarMapViewProps> = ({
         attributionControl: true,
       });
 
-      // Use Mapbox commercial tiles if VITE_MAPBOX_ACCESS_TOKEN is provided; otherwise free OpenStreetMap/CARTO Voyager street tiles
-      const mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
-      if (mapboxToken) {
-        L.tileLayer(
-          `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`,
-          {
-            attribution: '&copy; Mapbox &copy; OpenStreetMap',
-            tileSize: 512,
-            zoomOffset: -1,
-            maxZoom: 20,
-          }
-        ).addTo(map);
-      } else {
-        L.tileLayer(
-          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-          {
-            attribution:
-              '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-            subdomains: 'abcd',
-            maxZoom: 19,
-          }
-        ).addTo(map);
-      }
+      // 100% Free OpenStreetMap Tiles (No API key or paid Carto/Mapbox account required!)
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (100% Free)',
+        maxZoom: 19,
+      }).addTo(map);
 
       const radiusCircle = L.circle(
         [currentUser.latitude, currentUser.longitude],
