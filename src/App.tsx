@@ -16,6 +16,7 @@ import {
   Database,
   Search,
   Smartphone,
+  Monitor,
   Zap,
   Loader2,
   Users,
@@ -94,7 +95,7 @@ const RARITY_WEIGHT: Record<ItemRarity, number> = {
   Common: 1,
 };
 
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 6;
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
@@ -158,8 +159,21 @@ export function App() {
   const [gpsStatus, setGpsStatus] = useState<
     'idle' | 'locating' | 'locked' | 'simulated'
   >('idle');
-  const [phoneFrameMode, setPhoneFrameMode] = useState<boolean>(true);
+  const [phoneFrameMode, setPhoneFrameMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('pocketswap_view_mode');
+    if (saved === 'mobile') return true;
+    if (saved === 'desktop') return false;
+    return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  });
   const [showDevTools, setShowDevTools] = useState<boolean>(false);
+
+  const handleSetViewMode = (isMobileFrame: boolean) => {
+    setPhoneFrameMode(isMobileFrame);
+    localStorage.setItem(
+      'pocketswap_view_mode',
+      isMobileFrame ? 'mobile' : 'desktop'
+    );
+  };
 
   // Infinite Scroll & Pagination State
   const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
@@ -1412,10 +1426,56 @@ export function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col items-center justify-center ${
-        phoneFrameMode ? 'sm:py-6 sm:px-4' : ''
+      className={`min-h-screen flex flex-col items-center ${
+        phoneFrameMode
+          ? 'justify-center sm:py-5 sm:px-4'
+          : 'justify-start sm:py-4 sm:px-6'
       }`}
     >
+      {/* DESKTOP / MOBILE SCREEN MODE SWITCHER BAR (Visible on Tablet & Desktop screens) */}
+      <div className="hidden sm:flex items-center justify-between w-full max-w-7xl mb-3 px-4 py-2 rounded-2xl bg-[#4A3520]/90 text-[#FFF9EB] border-2 border-[#D8C5A0]/50 shadow-md backdrop-blur-md">
+        <div className="flex items-center gap-2.5">
+          <span className="text-lg">🌿</span>
+          <div>
+            <span className="font-game text-sm font-bold text-[#FFF9EB] tracking-wide">
+              PocketSwap
+            </span>
+            <span className="hidden md:inline-block ml-2 px-2 py-0.5 rounded-full bg-[#4E9F6E]/30 border border-[#4E9F6E] text-[10px] font-extrabold text-[#A8Ebc2]">
+              {phoneFrameMode
+                ? '📱 Mobile App Screen Mode'
+                : '🖥️ Desktop Website Mode'}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 bg-[#352515] p-1 rounded-xl border border-[#7C6246]/50">
+          <button
+            type="button"
+            onClick={() => handleSetViewMode(false)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all ${
+              !phoneFrameMode
+                ? 'bg-[#4E9F6E] text-white shadow-sm'
+                : 'text-[#D8C5A0] hover:text-white'
+            }`}
+          >
+            <Monitor className="w-3.5 h-3.5" />
+            <span>Desktop Website</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSetViewMode(true)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all ${
+              phoneFrameMode
+                ? 'bg-[#F6B93B] text-[#4A3520] shadow-sm'
+                : 'text-[#D8C5A0] hover:text-white'
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Mobile App Screen</span>
+          </button>
+        </div>
+      </div>
+
       {/* Secret Developer Toolbar (Hidden from real users; only accessible in local dev mode when toggled) */}
       {import.meta.env.DEV && (
         <div className="fixed bottom-3 right-3 z-50 flex flex-col items-end gap-2">
@@ -1426,12 +1486,12 @@ export function App() {
               </span>
               <button
                 type="button"
-                onClick={() => setPhoneFrameMode(!phoneFrameMode)}
+                onClick={() => handleSetViewMode(!phoneFrameMode)}
                 className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-left flex items-center gap-2"
               >
                 <Smartphone className="w-3.5 h-3.5 text-[#4E9F6E]" />
                 <span>
-                  {phoneFrameMode ? 'Switch to Fullscreen View' : 'Switch to Phone Frame'}
+                  {phoneFrameMode ? 'Switch to Desktop Website' : 'Switch to Phone Frame'}
                 </span>
               </button>
               <button
@@ -1465,12 +1525,12 @@ export function App() {
         </div>
       )}
 
-      {/* PHONE APP SHELL CONTAINER */}
+      {/* ADAPTIVE APP SHELL CONTAINER (MOBILE PHONE FRAME VS DESKTOP WEBSITE) */}
       <div
         className={`w-full bg-[#FFF9EB] flex flex-col relative overflow-hidden transition-all ${
           phoneFrameMode
             ? 'max-w-[440px] sm:rounded-[42px] sm:border-[6px] sm:border-[#5C4328] sm:shadow-[0_20px_50px_rgba(62,43,23,0.3)] min-h-screen sm:min-h-[840px] sm:max-h-[880px]'
-            : 'max-w-3xl min-h-screen sm:rounded-3xl sm:border-4 sm:border-[#D8C5A0] shadow-xl'
+            : 'max-w-7xl min-h-[calc(100vh-4.5rem)] sm:rounded-3xl sm:border-4 sm:border-[#D8C5A0] shadow-xl'
         }`}
       >
         {/* TOP GAME HUD BAR */}
@@ -1615,8 +1675,165 @@ export function App() {
           )}
         </AnimatePresence>
 
-        {/* MAIN SCROLLABLE VIEWPORT */}
-        <main className="flex-1 overflow-y-auto px-4 pt-3 pb-28 space-y-4">
+        {/* BODY WRAPPER: DESKTOP SIDEBAR + MAIN SCROLLABLE VIEWPORT */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* DESKTOP WEBSITE LEFT SIDEBAR NAVIGATION (Only visible in Desktop Website Mode on lg+ screens) */}
+          {!phoneFrameMode && (
+            <aside className="hidden lg:flex lg:w-64 xl:w-72 shrink-0 flex-col justify-between bg-[#F5E9CE]/70 border-r-2 border-[#D8C5A0] p-4 overflow-y-auto">
+              <div className="space-y-4">
+                {/* Primary Post & Swipe Actions */}
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadOpen(true)}
+                    className="w-full py-3 px-4 rounded-2xl bg-[#FF7E67] hover:bg-[#EE6C55] text-white font-game text-sm font-bold shadow-cozy-coral flex items-center justify-center gap-2 transition-transform active:translate-y-0.5"
+                  >
+                    <Plus className="w-4 h-4 stroke-[3]" />
+                    <span>Post Item for Swap</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsSwipeDeckOpen(true)}
+                    className="w-full py-2.5 px-4 rounded-2xl bg-[#FFF6E0] hover:bg-[#F6B93B]/30 border-2 border-[#F6B93B] text-[#4A3520] font-game text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-[#D9822B]" />
+                    <span>Open Swipe Match Deck</span>
+                  </button>
+                </div>
+
+                {/* Desktop Navigation Menu */}
+                <div className="space-y-1.5">
+                  <span className="px-2 text-[10px] font-extrabold uppercase tracking-wider text-[#8C6D46]">
+                    Village Navigation
+                  </span>
+                  {(
+                    [
+                      {
+                        id: 'explore',
+                        label: 'Explore Trade Plaza',
+                        icon: Compass,
+                        badge: filteredMarketplaceItems.length,
+                      },
+                      {
+                        id: 'radar',
+                        label: 'Live Street & GPS Radar',
+                        icon: Radio,
+                        badge: `${radarRadiusKm} km`,
+                      },
+                      {
+                        id: 'pocket',
+                        label: 'My Pocket Inventory',
+                        icon: Backpack,
+                        badge: `${myInventory.length}/12`,
+                      },
+                      {
+                        id: 'trades',
+                        label: 'Active Trades & Chat',
+                        icon: ArrowLeftRight,
+                        badge: pendingTradesCount > 0 ? pendingTradesCount : trades.length,
+                        highlightBadge: pendingTradesCount > 0,
+                      },
+                      {
+                        id: 'passport',
+                        label: 'Passport & Leaderboard',
+                        icon: User,
+                        badge: `${currentUser.karma_score.toFixed(1)}★`,
+                      },
+                    ] as const
+                  ).map((navItem) => {
+                    const IconComponent = navItem.icon;
+                    const isActive = activeTab === navItem.id;
+                    return (
+                      <button
+                        key={navItem.id}
+                        type="button"
+                        onClick={() => {
+                          if (navItem.id === 'passport') setInspectedUserId(null);
+                          setActiveTab(navItem.id);
+                        }}
+                        className={`w-full px-3.5 py-2.5 rounded-2xl font-game text-xs font-bold flex items-center justify-between transition-all border-2 ${
+                          isActive
+                            ? 'bg-[#4E9F6E] text-white border-[#367A51] shadow-sm'
+                            : 'bg-[#FFFDF7] text-[#5C4328] border-[#D8C5A0] hover:bg-[#FFF9EB]'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <IconComponent className="w-4 h-4" />
+                          <span>{navItem.label}</span>
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            isActive
+                              ? 'bg-white/20 text-white'
+                              : 'highlightBadge' in navItem && navItem.highlightBadge
+                              ? 'bg-[#FF7E67] text-white'
+                              : 'bg-[#F5E9CE] text-[#6E5031]'
+                          }`}
+                        >
+                          {navItem.badge}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Mini Trader Passport Card */}
+                <div className="rounded-2xl bg-[#FFFDF7] border-2 border-[#D8C5A0] p-3.5 space-y-2.5 shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-11 h-11 rounded-2xl bg-[#FFF9EB] border-2 border-[#4E9F6E] flex items-center justify-center text-2xl">
+                      {currentUser.avatar_emoji}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-extrabold text-[#2F7A4C] block truncate">
+                        {currentUser.title_badge}
+                      </span>
+                      <h4 className="font-game text-sm font-bold text-[#4A3520] truncate">
+                        {currentUser.display_name}
+                      </h4>
+                      <span className="text-[10px] font-bold text-[#7C6246] block truncate">
+                        📍 {currentUser.location_name}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsAuthModalOpen(true)}
+                      className="py-1.5 px-2 rounded-xl bg-[#EBF7EE] hover:bg-[#D7F0DF] text-[#2F7A4C] text-[10px] font-extrabold text-center transition-colors"
+                    >
+                      🔑 Switch Account
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsQuestsModalOpen(true)}
+                      className="py-1.5 px-2 rounded-xl bg-[#FFF6E0] hover:bg-[#F6B93B]/30 text-[#8C5811] text-[10px] font-extrabold text-center transition-colors"
+                    >
+                      🏆 Quests ({claimableQuestsCount})
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Mode Hint */}
+              <div className="pt-4 mt-4 border-t border-[#D8C5A0] text-[11px] font-bold text-[#7C6246] flex items-center justify-between">
+                <span>🟢 Cloud Synced</span>
+                <button
+                  type="button"
+                  onClick={() => handleSetViewMode(true)}
+                  className="underline text-[#4E9F6E] hover:text-[#2F7A4C] font-extrabold"
+                >
+                  📱 Mobile View →
+                </button>
+              </div>
+            </aside>
+          )}
+
+          {/* MAIN SCROLLABLE VIEWPORT */}
+          <main
+            className={`flex-1 overflow-y-auto px-4 pt-3 space-y-4 ${
+              phoneFrameMode ? 'pb-28' : 'pb-28 lg:pb-10 lg:px-6 lg:pt-5'
+            }`}
+          >
           {/* ========================================================= */}
           {/* TAB 1: EXPLORE LOCAL TRADE PLAZA                          */}
           {/* ========================================================= */}
@@ -1723,7 +1940,9 @@ export function App() {
               {/* Paginated Item Cards Feed */}
               <div
                 className={`grid gap-4 ${
-                  phoneFrameMode ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'
+                  phoneFrameMode
+                    ? 'grid-cols-1'
+                    : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
                 }`}
               >
                 {paginatedMarketplaceItems.map((item) => (
@@ -1821,7 +2040,11 @@ export function App() {
                     {myInventory.filter((i) => i.is_for_trade).length} Active for Trade
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div
+                  className={`grid gap-2 ${
+                    phoneFrameMode ? 'grid-cols-4' : 'grid-cols-4 md:grid-cols-8'
+                  }`}
+                >
                   {Array.from({ length: 8 }).map((_, slotIdx) => {
                     const slotItem = myInventory[slotIdx];
                     if (!slotItem) {
@@ -1874,7 +2097,13 @@ export function App() {
                 </div>
               </div>
 
-              <div className="space-y-3.5">
+              <div
+                className={`grid gap-4 ${
+                  phoneFrameMode
+                    ? 'grid-cols-1'
+                    : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
+                }`}
+              >
                 {myInventory.map((item) => (
                   <MagicGameCard
                     key={item.id}
@@ -1907,6 +2136,11 @@ export function App() {
                 </p>
               </div>
 
+              <div
+                className={`grid gap-4 ${
+                  phoneFrameMode ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2'
+                }`}
+              >
               {trades.map((trade) => {
                 const requestedItem = items.find(
                   (i) => i.id === trade.requested_item_id
@@ -2129,6 +2363,7 @@ export function App() {
                   </motion.div>
                 );
               })}
+              </div>
             </div>
           )}
 
@@ -2436,9 +2671,14 @@ export function App() {
             </div>
           )}
         </main>
+        </div>
 
-        {/* BOTTOM GAME NAVIGATION DOCK */}
-        <nav className="sticky bottom-0 z-30 bg-[#FFFDF7]/95 backdrop-blur-md border-t-3 border-[#D8C5A0] px-3 py-2 flex items-center justify-around">
+        {/* BOTTOM GAME NAVIGATION DOCK (Always visible in Mobile App Mode, or on tablet/mobile screens in Website Mode) */}
+        <nav
+          className={`sticky bottom-0 z-30 bg-[#FFFDF7]/95 backdrop-blur-md border-t-3 border-[#D8C5A0] px-3 py-2 flex items-center justify-around ${
+            !phoneFrameMode ? 'lg:hidden' : ''
+          }`}
+        >
           <button
             type="button"
             onClick={() => setActiveTab('explore')}
