@@ -128,30 +128,30 @@ export const MagicGameCard: React.FC<MagicGameCardProps> = ({
       )}
 
       {/* Top Card Header: Rarity Pill, Year Badge & Distance */}
-      <div className="relative z-10 flex items-center justify-between px-3.5 pt-3 pb-2 gap-1">
-        <div className="flex items-center gap-1.5">
+      <div className="relative z-10 flex flex-wrap items-center justify-between px-3.5 pt-3 pb-2 gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           <span
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold tracking-wide uppercase border border-black/5 ${rarityStyle.badgeBg} ${rarityStyle.badgeText}`}
+            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold tracking-wide uppercase whitespace-nowrap border border-black/5 ${rarityStyle.badgeBg} ${rarityStyle.badgeText}`}
           >
             <span>{rarityStyle.icon}</span>
             {item.rarity}
           </span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-[#FFF6E0] text-[#8C5800] border border-[#EED9B3]">
-            <Calendar className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-extrabold whitespace-nowrap bg-[#FFF6E0] text-[#8C5800] border border-[#EED9B3]">
+            <Calendar className="w-3 h-3 shrink-0" />
             {item.year_made || 2023}
           </span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {item.distance_km !== undefined && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#EBF7EE] text-[#2F7A4C] border border-[#BEE3C8]">
-              <MapPin className="w-3 h-3 fill-[#4E9F6E]/20" />
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap bg-[#EBF7EE] text-[#2F7A4C] border border-[#BEE3C8]">
+              <MapPin className="w-3 h-3 shrink-0 fill-[#4E9F6E]/20" />
               {item.distance_km < 0.1
                 ? 'Here!'
                 : `${item.distance_km.toFixed(1)} km`}
             </span>
           )}
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#F5E9CE] text-[#6E5031]">
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold whitespace-nowrap bg-[#F5E9CE] text-[#6E5031]">
             {item.condition}
           </span>
         </div>
@@ -306,38 +306,38 @@ export const MagicGameCard: React.FC<MagicGameCardProps> = ({
           <button
             type="button"
             onClick={() => onInspectProfile?.(item.owner_id)}
-            className="flex items-center gap-2 text-left group/owner hover:opacity-85 transition-opacity"
+            className="flex items-center gap-2 text-left group/owner hover:opacity-85 transition-opacity min-w-0 flex-1"
           >
-            <div className="w-9 h-9 rounded-2xl bg-[#F5E9CE] border-2 border-[#D8C5A0] flex items-center justify-center text-lg shadow-sm group-hover/owner:scale-105 transition-transform">
+            <div className="w-9 h-9 shrink-0 rounded-2xl bg-[#F5E9CE] border-2 border-[#D8C5A0] flex items-center justify-center text-lg shadow-sm group-hover/owner:scale-105 transition-transform">
               {item.owner_avatar}
             </div>
-            <div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs font-extrabold text-[#4A3520]">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-xs font-extrabold text-[#4A3520] truncate max-w-[110px]">
                   {isOwnItem ? 'You' : item.owner_name}
                 </span>
-                <span className="px-1.5 py-0.2 bg-[#E9DEC7] text-[#6D5438] rounded-md text-[10px] font-extrabold">
+                <span className="px-1.5 py-0.2 bg-[#E9DEC7] text-[#6D5438] rounded-md text-[10px] font-extrabold whitespace-nowrap shrink-0">
                   Lv.{item.owner_level}
                 </span>
                 {isFriendItem && !isOwnItem && (
-                  <span className="px-1.5 py-0.2 bg-[#EBF7EE] text-[#2F7A4C] border border-[#8BD1A0] rounded-md text-[9px] font-extrabold">
+                  <span className="px-1.5 py-0.2 bg-[#EBF7EE] text-[#2F7A4C] border border-[#8BD1A0] rounded-md text-[9px] font-extrabold whitespace-nowrap shrink-0">
                     🤝 Friend
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1 text-[11px] font-bold text-[#C88719]">
-                <Star className="w-3 h-3 fill-[#F6B93B] text-[#F6B93B]" />
+              <div className="flex items-center gap-1 text-[11px] font-bold text-[#C88719] whitespace-nowrap">
+                <Star className="w-3 h-3 shrink-0 fill-[#F6B93B] text-[#F6B93B]" />
                 <span>{item.owner_karma.toFixed(2)} Karma</span>
               </div>
             </div>
           </button>
 
           {isOwnItem ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => onToggleForTrade?.(item.id)}
-                className={`px-3 py-2 rounded-2xl text-xs font-extrabold transition-all active:translate-y-0.5 ${
+                className={`px-3 py-2 rounded-2xl text-xs font-extrabold whitespace-nowrap transition-all active:translate-y-0.5 ${
                   item.is_for_trade
                     ? 'bg-[#EBF7EE] text-[#2F7A4C] border-2 border-[#8BD1A0]'
                     : 'bg-[#F3E9D7] text-[#8C755B] border-2 border-[#D8C5A0]'
@@ -350,7 +350,7 @@ export const MagicGameCard: React.FC<MagicGameCardProps> = ({
                   type="button"
                   onClick={() => onDeleteItem(item.id)}
                   title="Remove item from Pocket"
-                  className="p-2 rounded-2xl bg-[#FFF0EC] hover:bg-[#FF7E67] text-[#C84B31] hover:text-white border border-[#FF7E67]/30 transition-colors"
+                  className="p-2 rounded-2xl bg-[#FFF0EC] hover:bg-[#FF7E67] text-[#C84B31] hover:text-white border border-[#FF7E67]/30 transition-colors shrink-0"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -360,9 +360,9 @@ export const MagicGameCard: React.FC<MagicGameCardProps> = ({
             <button
               type="button"
               onClick={() => onProposeTrade(item)}
-              className="px-3.5 py-2 rounded-2xl bg-[#4E9F6E] hover:bg-[#438D60] text-white font-game text-xs font-bold shadow-cozy-green active:translate-y-0.5 transition-all flex items-center gap-1.5"
+              className="shrink-0 whitespace-nowrap px-3.5 py-2 rounded-2xl bg-[#4E9F6E] hover:bg-[#438D60] text-white font-game text-xs font-bold shadow-cozy-green active:translate-y-0.5 transition-all flex items-center gap-1.5"
             >
-              <ArrowLeftRight className="w-3.5 h-3.5" />
+              <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
               <span>Offer Trade</span>
             </button>
           )}

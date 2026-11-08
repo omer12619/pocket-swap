@@ -1529,20 +1529,21 @@ export function App() {
       <div
         className={`w-full bg-[#FFF9EB] flex flex-col relative overflow-hidden transition-all ${
           phoneFrameMode
-            ? 'max-w-[440px] sm:rounded-[42px] sm:border-[6px] sm:border-[#5C4328] sm:shadow-[0_20px_50px_rgba(62,43,23,0.3)] min-h-screen sm:min-h-[840px] sm:max-h-[880px]'
-            : 'max-w-7xl min-h-[calc(100vh-4.5rem)] sm:rounded-3xl sm:border-4 sm:border-[#D8C5A0] shadow-xl'
+            ? 'max-w-[440px] h-[100dvh] sm:h-[850px] sm:max-h-[90vh] sm:rounded-[42px] sm:border-[6px] sm:border-[#5C4328] sm:shadow-[0_20px_50px_rgba(62,43,23,0.3)]'
+            : 'max-w-7xl min-h-[100dvh] sm:min-h-[calc(100vh-4.5rem)] sm:rounded-3xl sm:border-4 sm:border-[#D8C5A0] shadow-xl'
         }`}
       >
         {/* TOP GAME HUD BAR */}
-        <header className="sticky top-0 z-30 bg-[#F5E9CE]/95 backdrop-blur-md border-b-2 border-[#D8C5A0] px-3 pt-2.5 pb-2">
-          <div className="flex items-center justify-between gap-1.5">
+        <header className="sticky top-0 z-30 shrink-0 bg-[#F5E9CE]/95 backdrop-blur-md border-b-2 border-[#D8C5A0] px-3.5 pt-2.5 pb-2 space-y-2">
+          {/* HUD ROW 1: Player Avatar + Full Name/XP + Core Status Pills */}
+          <div className="flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={() => {
                 setInspectedUserId(null);
                 setActiveTab('passport');
               }}
-              className="flex items-center gap-2 text-left group min-w-0"
+              className="flex items-center gap-2.5 text-left group min-w-0 flex-1"
             >
               <div className="relative shrink-0">
                 <div className="w-10 h-10 rounded-2xl bg-[#FFF9EB] border-2 border-[#4E9F6E] flex items-center justify-center text-xl shadow-sm group-hover:scale-105 transition-transform">
@@ -1553,12 +1554,12 @@ export function App() {
                 </span>
               </div>
 
-              <div className="min-w-0">
-                <span className="font-game text-xs font-bold text-[#4A3520] block truncate">
+              <div className="min-w-0 flex-1">
+                <span className="font-game text-sm font-bold text-[#4A3520] block truncate">
                   {currentUser.display_name}
                 </span>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <div className="w-14 h-1.5 rounded-full bg-[#E0CEAC] overflow-hidden shrink-0">
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="w-16 h-1.5 rounded-full bg-[#E0CEAC] overflow-hidden shrink-0">
                     <div
                       className="h-full bg-[#4E9F6E] rounded-full transition-all duration-500"
                       style={{
@@ -1566,14 +1567,14 @@ export function App() {
                       }}
                     />
                   </div>
-                  <span className="text-[9px] font-extrabold text-[#7C6246] whitespace-nowrap">
+                  <span className="text-[10px] font-extrabold text-[#7C6246] whitespace-nowrap">
                     {currentUser.xp} XP
                   </span>
                 </div>
               </div>
             </button>
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               {/* Activity & Notification Bell Pill */}
               <button
                 type="button"
@@ -1581,10 +1582,10 @@ export function App() {
                   playCozySound('tap');
                   setIsActivityModalOpen(true);
                 }}
-                className="relative px-2 py-1.5 rounded-xl bg-[#FFF9EB] border-2 border-[#D8C5A0] flex items-center justify-center shadow-sm hover:bg-white transition-colors"
+                className="relative p-2 rounded-xl bg-[#FFF9EB] border-2 border-[#D8C5A0] flex items-center justify-center shadow-sm hover:bg-white transition-colors"
                 title="Village Activity & Alerts"
               >
-                <Bell className="w-3.5 h-3.5 text-[#5C4328]" />
+                <Bell className="w-4 h-4 text-[#5C4328]" />
                 {pendingTradesCount + incomingFriendRequestsCount > 0 && (
                   <span className="absolute -top-1.5 -right-1 w-4 h-4 rounded-full bg-[#FF7E67] text-white text-[9px] font-extrabold flex items-center justify-center shadow">
                     {pendingTradesCount + incomingFriendRequestsCount}
@@ -1592,14 +1593,14 @@ export function App() {
                 )}
               </button>
 
-              {/* Cozy Quests Pill with Unclaimed Reward Badge */}
+              {/* Cozy Quests Pill */}
               <button
                 type="button"
                 onClick={() => setIsQuestsModalOpen(true)}
-                className="relative px-2 py-1.5 rounded-xl bg-[#FFF6E0] border-2 border-[#F6B93B] flex items-center gap-1 shadow-sm hover:bg-white transition-colors"
+                className="relative px-2.5 py-1.5 rounded-xl bg-[#FFF6E0] border-2 border-[#F6B93B] flex items-center gap-1 shadow-sm hover:bg-white transition-colors whitespace-nowrap"
                 title="Cozy Quests & Rewards"
               >
-                <Trophy className="w-3.5 h-3.5 text-[#D9822B]" />
+                <Trophy className="w-3.5 h-3.5 text-[#D9822B] shrink-0" />
                 <span className="font-game text-[11px] font-bold text-[#5C4328]">
                   Quests
                 </span>
@@ -1610,14 +1611,14 @@ export function App() {
                 )}
               </button>
 
-              {/* Friends Hub Pill with Request Notification Badge */}
+              {/* Friends Hub Pill */}
               <button
                 type="button"
                 onClick={() => setIsFriendsModalOpen(true)}
-                className="relative px-2 py-1.5 rounded-xl bg-[#FFF9EB] border-2 border-[#D8C5A0] flex items-center gap-1 shadow-sm hover:bg-white transition-colors"
+                className="relative px-2 py-1.5 rounded-xl bg-[#FFF9EB] border-2 border-[#D8C5A0] flex items-center gap-1 shadow-sm hover:bg-white transition-colors whitespace-nowrap"
                 title="Friends & Trade Buddies"
               >
-                <Users className="w-3.5 h-3.5 text-[#4E9F6E]" />
+                <Users className="w-3.5 h-3.5 text-[#4E9F6E] shrink-0" />
                 <span className="font-game text-[11px] font-bold text-[#5C4328]">
                   {acceptedFriendIds.length}
                 </span>
@@ -1635,28 +1636,40 @@ export function App() {
                   setInspectedUserId(null);
                   setActiveTab('passport');
                 }}
-                className="px-2 py-1.5 rounded-xl bg-[#FFF9EB] border-2 border-[#EED9B3] flex items-center gap-1 shadow-sm"
+                className="px-2 py-1.5 rounded-xl bg-[#FFF9EB] border-2 border-[#EED9B3] flex items-center gap-1 shadow-sm whitespace-nowrap"
                 title="Karma Score"
               >
-                <Star className="w-3 h-3 fill-[#F6B93B] text-[#F6B93B]" />
+                <Star className="w-3.5 h-3.5 fill-[#F6B93B] text-[#F6B93B] shrink-0" />
                 <span className="font-game text-[11px] font-bold text-[#5C4328]">
                   {currentUser.karma_score.toFixed(2)}
                 </span>
               </button>
-
-              {/* GPS Pill */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('radar')}
-                className="px-2 py-1.5 rounded-xl bg-[#EBF7EE] border-2 border-[#9FD8B2] text-[#2F7A4C] flex items-center gap-0.5 shadow-sm"
-                title="Live Trade Radar"
-              >
-                <MapPin className="w-3.5 h-3.5 shrink-0" />
-                <span className="text-[10px] font-extrabold max-w-[52px] truncate">
-                  {currentUser.location_name.split(' ')[0]}
-                </span>
-              </button>
             </div>
+          </div>
+
+          {/* HUD ROW 2: Live Location Radar Strip & Quick Account Switcher */}
+          <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-[#E5D3B3]/80">
+            <button
+              type="button"
+              onClick={() => setActiveTab('radar')}
+              className="px-2.5 py-1 rounded-xl bg-[#EBF7EE] hover:bg-[#D8F1DF] border border-[#9FD8B2] text-[#2F7A4C] flex items-center gap-1.5 text-[11px] font-extrabold transition-colors min-w-0"
+              title="Open Live Street & GPS Radar"
+            >
+              <MapPin className="w-3.5 h-3.5 shrink-0 text-[#2F7A4C]" />
+              <span className="truncate">{currentUser.location_name}</span>
+              <span className="text-[10px] text-[#4E9F6E] font-bold shrink-0">
+                • {radarRadiusKm}km Radar →
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="px-2.5 py-1 rounded-xl bg-[#FFF9EB] hover:bg-white border border-[#D8C5A0] text-[#5C4328] text-[11px] font-extrabold flex items-center gap-1 shrink-0 whitespace-nowrap transition-colors"
+            >
+              <UserPlus className="w-3 h-3 text-[#4E9F6E]" />
+              <span>Switch Villager</span>
+            </button>
           </div>
         </header>
 
@@ -1676,7 +1689,7 @@ export function App() {
         </AnimatePresence>
 
         {/* BODY WRAPPER: DESKTOP SIDEBAR + MAIN SCROLLABLE VIEWPORT */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex min-h-0 min-w-0 w-full overflow-hidden">
           {/* DESKTOP WEBSITE LEFT SIDEBAR NAVIGATION (Only visible in Desktop Website Mode on lg+ screens) */}
           {!phoneFrameMode && (
             <aside className="hidden lg:flex lg:w-64 xl:w-72 shrink-0 flex-col justify-between bg-[#F5E9CE]/70 border-r-2 border-[#D8C5A0] p-4 overflow-y-auto">
@@ -1830,42 +1843,52 @@ export function App() {
 
           {/* MAIN SCROLLABLE VIEWPORT */}
           <main
-            className={`flex-1 overflow-y-auto px-4 pt-3 space-y-4 ${
-              phoneFrameMode ? 'pb-28' : 'pb-28 lg:pb-10 lg:px-6 lg:pt-5'
+            className={`flex-1 min-h-0 min-w-0 w-full overflow-y-auto px-3.5 pt-3 space-y-3.5 ${
+              phoneFrameMode ? 'pb-24' : 'pb-24 lg:pb-10 lg:px-6 lg:pt-5'
             }`}
           >
           {/* ========================================================= */}
           {/* TAB 1: EXPLORE LOCAL TRADE PLAZA                          */}
           {/* ========================================================= */}
           {activeTab === 'explore' && (
-            <div className="space-y-3.5">
+            <div className="space-y-3">
               <div className="rounded-3xl bg-gradient-to-r from-[#4E9F6E] to-[#3B8458] p-4 text-white shadow-cozy-green relative overflow-hidden">
-                <div className="relative z-10 flex items-center justify-between gap-3">
-                  <div>
+                <div
+                  className={`relative z-10 flex gap-3 ${
+                    phoneFrameMode
+                      ? 'flex-col'
+                      : 'flex-col md:flex-row md:items-center md:justify-between'
+                  }`}
+                >
+                  <div className="min-w-0">
                     <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/20 text-[10px] font-extrabold uppercase tracking-wider mb-1">
                       🌿 Local Trade-Off Season 1
                     </span>
-                    <h1 className="font-game text-lg font-bold leading-tight">
+                    <h1 className="font-game text-base sm:text-lg font-bold leading-snug">
                       Swap Treasures Around {currentUser.location_name}!
                     </h1>
                     <p className="text-xs text-white/90 font-semibold mt-0.5">
                       Tap any item to inspect Year, Condition & ask the owner questions!
                     </p>
                   </div>
-                  <div className="flex flex-col gap-1.5 shrink-0">
+                  <div
+                    className={`grid grid-cols-2 gap-2 shrink-0 ${
+                      phoneFrameMode ? 'w-full pt-1' : 'w-full md:w-auto'
+                    }`}
+                  >
                     <button
                       type="button"
                       onClick={() => setIsUploadOpen(true)}
-                      className="px-3.5 py-2 rounded-2xl bg-[#F6B93B] hover:bg-[#E7A92B] text-[#4A3520] font-game text-xs font-bold shadow-cozy-gold active:translate-y-0.5"
+                      className="px-3.5 py-2 rounded-2xl bg-[#F6B93B] hover:bg-[#E7A92B] text-[#4A3520] font-game text-xs font-bold shadow-cozy-gold active:translate-y-0.5 whitespace-nowrap text-center"
                     >
                       + Post Item
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsSwipeDeckOpen(true)}
-                      className="px-3.5 py-2 rounded-2xl bg-[#FF7E67] hover:bg-[#EE6C55] text-white font-game text-xs font-bold shadow-sm active:translate-y-0.5 flex items-center justify-center gap-1"
+                      className="px-3.5 py-2 rounded-2xl bg-[#FF7E67] hover:bg-[#EE6C55] text-white font-game text-xs font-bold shadow-sm active:translate-y-0.5 flex items-center justify-center gap-1 whitespace-nowrap"
                     >
-                      <Zap className="w-3.5 h-3.5" />
+                      <Zap className="w-3.5 h-3.5 shrink-0" />
                       <span>Swipe Deck</span>
                     </button>
                   </div>
@@ -2382,20 +2405,20 @@ export function App() {
                 </button>
               )}
 
-              <div className="rounded-3xl bg-gradient-to-b from-[#FFFDF7] to-[#F5E9CE] border-[3px] border-[#D8C5A0] p-5 shadow-cozy relative overflow-hidden">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 rounded-3xl bg-[#FFF9EB] border-3 border-[#4E9F6E] flex items-center justify-center text-4xl shadow-md">
+              <div className="rounded-3xl bg-gradient-to-b from-[#FFFDF7] to-[#F5E9CE] border-[3px] border-[#D8C5A0] p-4 sm:p-5 shadow-cozy relative overflow-hidden">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-16 h-16 shrink-0 rounded-3xl bg-[#FFF9EB] border-3 border-[#4E9F6E] flex items-center justify-center text-3xl shadow-md">
                       {displayedProfile.avatar_emoji}
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#EBF7EE] text-[#2F7A4C] text-[10px] font-extrabold border border-[#9FD8B2]">
                         {displayedProfile.title_badge}
                       </span>
-                      <h2 className="font-game text-xl font-bold text-[#4A3520] mt-0.5">
+                      <h2 className="font-game text-lg sm:text-xl font-bold text-[#4A3520] mt-0.5 truncate">
                         {displayedProfile.display_name}
                       </h2>
-                      <p className="text-xs font-bold text-[#7C6246]">
+                      <p className="text-xs font-bold text-[#7C6246] truncate">
                         @{displayedProfile.username} • 📍{' '}
                         {displayedProfile.location_name}
                       </p>
@@ -2403,28 +2426,28 @@ export function App() {
                   </div>
 
                   {displayedProfile.id === currentUser.id ? (
-                    <div className="flex flex-col gap-1.5 shrink-0">
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setIsEditProfileOpen(true)}
-                        className="px-3 py-1.5 rounded-2xl bg-[#FFF9EB] hover:bg-white border-2 border-[#D8C5A0] text-xs font-extrabold text-[#5C4328] flex items-center justify-center gap-1 shadow-sm"
+                        className="px-3 py-2 rounded-2xl bg-[#FFF9EB] hover:bg-white border-2 border-[#D8C5A0] text-xs font-extrabold text-[#5C4328] flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap"
                       >
-                        <Edit3 className="w-3.5 h-3.5 text-[#4E9F6E]" />
-                        <span>Edit</span>
+                        <Edit3 className="w-3.5 h-3.5 text-[#4E9F6E] shrink-0" />
+                        <span>Edit Passport</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setIsAuthModalOpen(true)}
-                        className="px-3 py-1.5 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white text-xs font-extrabold flex items-center justify-center gap-1 shadow-sm"
+                        className="px-3 py-2 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap"
                       >
-                        <UserPlus className="w-3.5 h-3.5" />
+                        <UserPlus className="w-3.5 h-3.5 shrink-0" />
                         <span>Switch / Sign Up</span>
                       </button>
                     </div>
                   ) : displayedFriendStatus === 'friends' ? (
-                    <span className="px-3 py-1.5 rounded-2xl bg-[#EBF7EE] border-2 border-[#8BD1A0] text-xs font-extrabold text-[#2F7A4C] flex items-center gap-1">
+                    <span className="px-3 py-2 rounded-2xl bg-[#EBF7EE] border-2 border-[#8BD1A0] text-xs font-extrabold text-[#2F7A4C] flex items-center justify-center gap-1">
                       <UserCheck className="w-3.5 h-3.5" />
-                      <span>Friends</span>
+                      <span>Trade Buddies (Friends)</span>
                     </span>
                   ) : displayedFriendStatus === 'incoming' ? (
                     <button
@@ -2432,22 +2455,22 @@ export function App() {
                       onClick={() =>
                         handleAcceptFriendRequest(displayedProfile.id)
                       }
-                      className="px-3 py-1.5 rounded-2xl bg-[#F6B93B] text-xs font-extrabold text-[#4A3520] shadow-sm"
+                      className="w-full px-3 py-2 rounded-2xl bg-[#F6B93B] text-xs font-extrabold text-[#4A3520] shadow-sm"
                     >
-                      Accept Friend
+                      Accept Friend Request
                     </button>
                   ) : displayedFriendStatus === 'outgoing' ? (
-                    <span className="px-3 py-1.5 rounded-2xl bg-[#F5E9CE] text-xs font-extrabold text-[#7C6246]">
-                      Requested ⏳
+                    <span className="px-3 py-2 rounded-2xl bg-[#F5E9CE] text-xs font-extrabold text-[#7C6246] text-center">
+                      Friend Request Sent ⏳
                     </span>
                   ) : (
                     <button
                       type="button"
                       onClick={() => handleSendFriendRequest(displayedProfile)}
-                      className="px-3 py-1.5 rounded-2xl bg-[#4E9F6E] text-white text-xs font-extrabold flex items-center gap-1 shadow-cozy-green"
+                      className="w-full px-3 py-2 rounded-2xl bg-[#4E9F6E] text-white text-xs font-extrabold flex items-center justify-center gap-1 shadow-cozy-green"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
-                      <span>Add Friend</span>
+                      <span>Add as Trade Buddy</span>
                     </button>
                   )}
                 </div>
@@ -2675,7 +2698,7 @@ export function App() {
 
         {/* BOTTOM GAME NAVIGATION DOCK (Always visible in Mobile App Mode, or on tablet/mobile screens in Website Mode) */}
         <nav
-          className={`sticky bottom-0 z-30 bg-[#FFFDF7]/95 backdrop-blur-md border-t-3 border-[#D8C5A0] px-3 py-2 flex items-center justify-around ${
+          className={`sticky bottom-0 z-30 shrink-0 bg-[#FFFDF7]/95 backdrop-blur-md border-t-3 border-[#D8C5A0] px-3 py-2 flex items-center justify-around ${
             !phoneFrameMode ? 'lg:hidden' : ''
           }`}
         >
