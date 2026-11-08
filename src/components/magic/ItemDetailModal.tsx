@@ -23,6 +23,7 @@ interface ItemDetailModalProps {
   onClose: () => void;
   onProposeTrade: (item: TradeItem) => void;
   onAskQuestion: (item: TradeItem, questionText: string) => void;
+  onAddPublicComment?: (itemId: string, commentText: string) => void;
   onReportItem?: (item: TradeItem) => void;
   onBlockUser?: (ownerId: string, ownerName: string) => void;
   onShareItem?: (item: TradeItem) => void;
@@ -35,12 +36,14 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   onClose,
   onProposeTrade,
   onAskQuestion,
+  onAddPublicComment,
   onReportItem,
   onBlockUser,
   onShareItem,
   onEditItem,
 }) => {
   const [questionText, setQuestionText] = useState('');
+  const [publicCommentText, setPublicCommentText] = useState('');
   const [activeAngleIdx, setActiveAngleIdx] = useState(0);
   const [selectedPhotoIdx, setSelectedPhotoIdx] = useState(0);
 
@@ -71,6 +74,36 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     setQuestionText('');
     onClose();
   };
+
+  const handlePostPublicComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!publicCommentText.trim() || !onAddPublicComment) return;
+    onAddPublicComment(item.id, publicCommentText.trim());
+    setPublicCommentText('');
+  };
+
+  const defaultComments = [
+    {
+      id: 'default-c1',
+      user_id: 'user-3',
+      user_name: 'Mochi Cat',
+      user_avatar: '🐱',
+      text: `Is everything tested and working smoothly on this ${item.year_made || 2023} ${item.brand || 'item'}?`,
+      created_at: '2h ago',
+    },
+    {
+      id: 'default-c2',
+      user_id: item.owner_id,
+      user_name: item.owner_name,
+      user_avatar: item.owner_avatar,
+      text: `Yes! Graded ${item.condition} and comes with ${item.accessories_included || 'all listed accessories'}. Happy to let you test it in person at meetup!`,
+      is_owner_reply: true,
+      created_at: '1h ago',
+    },
+  ];
+
+  const displayedComments =
+    item.comments && item.comments.length > 0 ? item.comments : defaultComments;
 
   return (
     <AnimatePresence>
@@ -295,22 +328,90 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Ask a Question Directly From Item Sheet */}
+            {/* Public Community Q&A Wall on Item */}
+            <div className="p-3.5 rounded-2xl bg-[#FFFDF7] border-2 border-[#D8C5A0] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold uppercase text-[#5C4328] flex items-center gap-1.5">
+                  <MessageCircle className="w-3.5 h-3.5 text-[#4E9F6E]" />
+                  <span>Public Item Q&A Wall ({displayedComments.length})</span>
+                </span>
+                <span className="text-[10px] font-bold text-[#8C6D46]">
+                  Visible to all villagers
+                </span>
+              </div>
+
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                {displayedComments.map((c) => (
+                  <div
+                    key={c.id}
+                    className={`p-2.5 rounded-xl border text-xs ${
+                      c.is_owner_reply
+                        ? 'bg-[#EBF7EE] border-[#8BD1A0]'
+                        : 'bg-[#FFF9EB] border-[#E6D5B5]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span>{c.user_avatar}</span>
+                        <span className="font-extrabold text-[#4A3520]">
+                          {c.user_name}
+                        </span>
+                        {c.is_owner_reply && (
+                          <span className="px-1.5 py-0.2 rounded bg-[#4E9F6E] text-white text-[9px] font-extrabold uppercase">
+                            Owner
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold text-[#8C6D46]">
+                        {c.created_at}
+                      </span>
+                    </div>
+                    <p className="font-semibold text-[#5C4328] leading-snug">
+                      {c.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {onAddPublicComment && (
+                <form onSubmit={handlePostPublicComment} className="flex gap-1.5 pt-1">
+                  <input
+                    type="text"
+                    value={publicCommentText}
+                    onChange={(e) => setPublicCommentText(e.target.value)}
+                    placeholder={
+                      isOwnItem
+                        ? 'Post an owner update or answer on your listing...'
+                        : `Ask a public question on this listing...`
+                    }
+                    className="flex-1 rounded-xl bg-white border-2 border-[#D8C5A0] px-3 py-1.5 text-xs font-bold text-[#4A3520] focus:outline-none focus:border-[#4E9F6E]"
+                  />
+                  <button
+                    type="submit"
+                    className="px-3 py-1.5 rounded-xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white text-xs font-extrabold shrink-0"
+                  >
+                    Post
+                  </button>
+                </form>
+              )}
+            </div>
+
+            {/* Ask a Private Question Directly in 1-on-1 Trade Chat */}
             {!isOwnItem && (
               <form
                 onSubmit={handleSendQuestion}
                 className="p-3 rounded-2xl bg-[#FFFDF7] border-2 border-[#D8C5A0] space-y-2"
               >
                 <label className="text-[11px] font-extrabold uppercase text-[#5C4328] flex items-center gap-1.5">
-                  <MessageCircle className="w-3.5 h-3.5 text-[#4E9F6E]" />
-                  <span>Ask {item.owner_name} a Question About This Item</span>
+                  <Send className="w-3.5 h-3.5 text-[#FF7E67]" />
+                  <span>Or Start Private 1-on-1 Trade Chat with {item.owner_name}</span>
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={questionText}
                     onChange={(e) => setQuestionText(e.target.value)}
-                    placeholder={`e.g., Does this ${item.year_made} ${item.brand} have any scratches?`}
+                    placeholder={`DM ${item.owner_name} privately about swapping...`}
                     className="flex-1 rounded-xl bg-white border-2 border-[#D8C5A0] px-3 py-2 text-xs font-bold text-[#4A3520] focus:outline-none focus:border-[#4E9F6E]"
                   />
                   <button
@@ -318,7 +419,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                     className="px-3.5 py-2 rounded-xl bg-[#5C4328] hover:bg-[#4A3520] text-white text-xs font-extrabold flex items-center gap-1 shrink-0"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>Ask</span>
+                    <span>DM</span>
                   </button>
                 </div>
               </form>

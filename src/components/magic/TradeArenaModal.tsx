@@ -53,13 +53,30 @@ export const TradeArenaModal: React.FC<TradeArenaModalProps> = ({
     );
   };
 
-  const targetScore = RARITY_POINTS[targetItem.rarity] || 1;
-  const offeredScore = selectedIds.reduce((acc, id) => {
-    const found = myInventory.find((i) => i.id === id);
-    if (!found) return acc;
-    const matchBonus = doesItemMatchWishlist(found) ? 1.5 : 0;
-    return acc + RARITY_POINTS[found.rarity] + matchBonus;
-  }, 0);
+  const computeItemAppraisalScore = (item: TradeItem, includeWishBonus = false): number => {
+    const rarityBase = RARITY_POINTS[item.rarity] || 1;
+    const conditionBonus =
+      item.condition === 'Mint ✨'
+        ? 0.8
+        : item.condition === 'Great 🌿'
+        ? 0.5
+        : item.condition === 'Well-Loved 🧸'
+        ? 0.2
+        : 0;
+    const vintageBonus = (item.year_made || 2023) < 2005 ? 0.8 : (item.year_made || 2023) < 2016 ? 0.4 : 0.1;
+    const wishBonus = includeWishBonus && doesItemMatchWishlist(item) ? 1.5 : 0;
+    return Math.round((rarityBase + conditionBonus + vintageBonus + wishBonus) * 10) / 10;
+  };
+
+  const targetScore = computeItemAppraisalScore(targetItem, false);
+  const offeredScore =
+    Math.round(
+      selectedIds.reduce((acc, id) => {
+        const found = myInventory.find((i) => i.id === id);
+        if (!found) return acc;
+        return acc + computeItemAppraisalScore(found, true);
+      }, 0) * 10
+    ) / 10;
 
   const fairnessRatio = Math.min(100, Math.round((offeredScore / targetScore) * 75));
   const matchProbability =
@@ -159,10 +176,13 @@ export const TradeArenaModal: React.FC<TradeArenaModalProps> = ({
                 <ArrowUpDown className="w-5 h-5" />
               </div>
 
-              <div className="w-full mt-3 bg-[#F5E9CE] rounded-2xl p-2.5 border border-[#D8C5A0]">
-                <div className="flex items-center justify-between text-xs font-extrabold text-[#5C4328] mb-1">
-                  <span>Trade Vibe & Balance Meter</span>
-                  <span>{selectedIds.length}/3 Slots</span>
+              <div className="w-full mt-3 bg-[#F5E9CE] rounded-2xl p-3 border-2 border-[#D8C5A0] space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-extrabold text-[#5C4328]">
+                  <span>⚖️ Smart Fair-Trade Appraiser</span>
+                  <span>
+                    Your Offer: <strong className="text-[#2F7A4C]">{offeredScore} pts</strong> vs Target:{' '}
+                    <strong className="text-[#4A3520]">{targetScore} pts</strong>
+                  </span>
                 </div>
                 <div className="w-full h-2.5 bg-[#E2D1B0] rounded-full overflow-hidden">
                   <motion.div
@@ -175,9 +195,13 @@ export const TradeArenaModal: React.FC<TradeArenaModalProps> = ({
                     }`}
                   />
                 </div>
-                <p className="text-[11px] font-bold text-[#6E5031] mt-1 text-center">
+                <p className="text-[11px] font-bold text-[#6E5031] text-center">
                   {fairnessLabel}
                 </p>
+                <div className="pt-1 border-t border-[#D8C5A0]/70 flex items-center justify-between text-[10px] font-bold text-[#7C6246]">
+                  <span>Factors: Rarity + Condition + Vintage Era + 🎯 Wishlist</span>
+                  <span>{selectedIds.length}/3 Slots</span>
+                </div>
               </div>
             </div>
 

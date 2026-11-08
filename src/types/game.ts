@@ -53,6 +53,30 @@ export interface FriendConnection {
   created_at: string;
 }
 
+export interface ItemComment {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_avatar: string;
+  text: string;
+  is_owner_reply?: boolean;
+  created_at: string;
+}
+
+export interface WantedPost {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_avatar: string;
+  user_level: number;
+  user_karma: number;
+  looking_for: string;
+  category: Exclude<ItemCategory, 'All'>;
+  offering_hint: string;
+  location_name: string;
+  created_at: string;
+}
+
 export interface TradeItem {
   id: string;
   owner_id: string;
@@ -73,6 +97,7 @@ export interface TradeItem {
   media_url: string;
   media_type: 'image' | 'video';
   gallery_urls?: string[];
+  comments?: ItemComment[];
   wishlist_hint: string;
   is_for_trade: boolean;
   latitude: number;
@@ -90,7 +115,9 @@ export interface TradeChatMessage {
   sender_name: string;
   sender_avatar: string;
   text: string;
+  attachment_url?: string;
   is_counter_event?: boolean;
+  is_meetup_event?: boolean;
   created_at: string;
 }
 
@@ -110,6 +137,11 @@ export interface TradeOffer {
   counter_count: number;
   last_actor_name?: string;
   meetup_distance_km: number;
+  meetup_spot_name?: string;
+  meetup_spot_address?: string;
+  meetup_time_slot?: string;
+  meetup_lat?: number;
+  meetup_lng?: number;
   messages: TradeChatMessage[];
   created_at: string;
   rated_by_user?: boolean;

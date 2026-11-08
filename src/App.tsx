@@ -27,16 +27,20 @@ import {
   UserCheck,
   Bell,
   Share2,
+  Navigation,
+  Flame,
 } from 'lucide-react';
 import {
   FriendConnection,
   ItemCategory,
+  ItemComment,
   ItemRarity,
   KarmaReview,
   TradeChatMessage,
   TradeItem,
   TradeOffer,
   UserProfile,
+  WantedPost,
 } from './types/game';
 import {
   calculateDistanceKm,
@@ -71,6 +75,7 @@ import { SwipeMatchModal } from './components/magic/SwipeMatchModal';
 import { AuthPassportModal } from './components/magic/AuthPassportModal';
 import { ActivityFeedModal } from './components/magic/ActivityFeedModal';
 import { ShareQrModal } from './components/magic/ShareQrModal';
+import { WantedBoardModal } from './components/magic/WantedBoardModal';
 import {
   isSoundEnabled,
   playCozySound,
@@ -98,6 +103,48 @@ const RARITY_WEIGHT: Record<ItemRarity, number> = {
 };
 
 const PAGE_SIZE = 6;
+
+const INITIAL_WANTED_POSTS: WantedPost[] = [
+  {
+    id: 'wanted-1',
+    user_id: 'user-2',
+    user_name: 'Berry Raccoon',
+    user_avatar: '🦝',
+    user_level: 11,
+    user_karma: 4.98,
+    looking_for: 'Nintendo 3DS Charger or GBA Link Cable',
+    category: 'Gaming',
+    offering_hint: 'Atomic Purple GameBoy Color or Cozy Ceramic Mug',
+    location_name: 'Sunnyvale Plaza',
+    created_at: '35m ago',
+  },
+  {
+    id: 'wanted-2',
+    user_id: 'user-3',
+    user_name: 'Mochi Cat',
+    user_avatar: '🐱',
+    user_level: 7,
+    user_karma: 4.91,
+    looking_for: 'Fujifilm Instax Mini Film Pack or Vintage Camera Strap',
+    category: 'Gadgets',
+    offering_hint: 'Keychron Mechanical Keycaps or Studio Ghibli Artbook',
+    location_name: 'Rose Garden',
+    created_at: '2h ago',
+  },
+  {
+    id: 'wanted-3',
+    user_id: 'user-4',
+    user_name: 'Sprout Frog',
+    user_avatar: '🐸',
+    user_level: 9,
+    user_karma: 4.95,
+    looking_for: 'Terracotta Plant Pots or Cozy Desk Lamp',
+    category: 'Home & Cozy',
+    offering_hint: 'Rooted Monstera & Pothos Cuttings or Matcha Whisk Set',
+    location_name: 'Oak Creek Park',
+    created_at: '4h ago',
+  },
+];
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
@@ -188,9 +235,21 @@ export function App() {
   const [inspectedItem, setInspectedItem] = useState<TradeItem | null>(null);
   const [activeChatTradeId, setActiveChatTradeId] = useState<string | null>(null);
   const [chatModalInitialMode, setChatModalInitialMode] = useState<
-    'chat' | 'counter'
+    'chat' | 'counter' | 'meetup'
   >('chat');
   const [meetupPinTradeId, setMeetupPinTradeId] = useState<string | null>(null);
+  const [isWantedBoardOpen, setIsWantedBoardOpen] = useState<boolean>(false);
+  const [wantedPosts, setWantedPosts] = useState<WantedPost[]>(() => {
+    const saved = localStorage.getItem('pocketswap_wanted_v1');
+    return saved ? JSON.parse(saved) : INITIAL_WANTED_POSTS;
+  });
+  const [dailyStreakClaimed, setDailyStreakClaimed] = useState<boolean>(() => {
+    return (
+      localStorage.getItem('pocketswap_streak_date') ===
+      new Date().toDateString()
+    );
+  });
+  const [eventFilterActive, setEventFilterActive] = useState<boolean>(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState<boolean>(false);
@@ -272,6 +331,102 @@ export function App() {
       JSON.stringify(claimedQuestIds)
     );
   }, [claimedQuestIds]);
+
+  useEffect(() => {
+    localStorage.setItem('pocketswap_wanted_v1', JSON.stringify(wantedPosts));
+  }, [wantedPosts]);
+
+  const handleClaimDailyStreak = () => {
+    if (dailyStreakClaimed) {
+      showToast('🔥 You already claimed today’s Village Check-In Bonus! Come back tomorrow.');
+      return;
+    }
+    setDailyStreakClaimed(true);
+    localStorage.setItem('pocketswap_streak_date', new Date().toDateString());
+    playCozySound('fanfare');
+    setCurrentUser((prev) => {
+      const nextXp = prev.xp + 30;
+      const leveledUp = nextXp >= 200;
+      return {
+        ...prev,
+        xp: leveledUp ? nextXp - 200 : nextXp,
+        level: leveledUp ? prev.level + 1 : prev.level,
+        karma_points: prev.karma_points + 10,
+      };
+    });
+    confetti({ particleCount: 65, spread: 65, origin: { y: 0.6 } });
+    showToast('🔥 Daily Village Check-In Claimed! (+30 XP & +10 Karma Points)');
+  };
+
+  const handleAddPublicComment = (itemId: string, commentText: string) => {
+    const newComment: ItemComment = {
+      id: `comment-${Date.now()}`,
+      user_id: currentUser.id,
+      user_name: currentUser.display_name,
+      user_avatar: currentUser.avatar_emoji,
+      text: commentText,
+      is_owner_reply:
+        items.find((i) => i.id === itemId)?.owner_id === currentUser.id,
+      created_at: 'Just now',
+    };
+
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        const updated = {
+          ...item,
+          comments: [...(item.comments || []), newComment],
+        };
+        if (inspectedItem?.id === itemId) {
+          setInspectedItem(updated);
+        }
+        return updated;
+      })
+    );
+    showToast('💬 Posted your comment to the Item Q&A Wall!');
+  };
+
+  const handleAddWantedPost = (
+    lookingFor: string,
+    category: Exclude<ItemCategory, 'All'>,
+    offeringHint: string
+  ) => {
+    const newPost: WantedPost = {
+      id: `wanted-${Date.now()}`,
+      user_id: currentUser.id,
+      user_name: currentUser.display_name,
+      user_avatar: currentUser.avatar_emoji,
+      user_level: currentUser.level,
+      user_karma: currentUser.karma_score,
+      looking_for: lookingFor,
+      category,
+      offering_hint: offeringHint,
+      location_name: currentUser.location_name,
+      created_at: 'Just now',
+    };
+    setWantedPosts((prev) => [newPost, ...prev]);
+    setCurrentUser((prev) => ({
+      ...prev,
+      xp: prev.xp + 15,
+    }));
+    confetti({ particleCount: 45, spread: 55, origin: { y: 0.65 } });
+    showToast('📌 Pinned your ISO Wish Note to the Village Wanted Board! (+15 XP)');
+  };
+
+  const handleFulfillWanted = (post: WantedPost) => {
+    const targetOwnerItem = itemsWithDistance.find(
+      (i) => i.owner_id === post.user_id && i.is_for_trade
+    );
+    if (targetOwnerItem) {
+      setTradeTargetItem(targetOwnerItem);
+      showToast(
+        `🎁 Opening Trade Bench with ${post.user_name} for their "${post.looking_for}" wish!`
+      );
+    } else {
+      setInspectedUserId(post.user_id);
+      setActiveTab('passport');
+    }
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -930,6 +1085,13 @@ export function App() {
       .filter((i) =>
         selectedCategory === 'All' ? true : i.category === selectedCategory
       )
+      .filter((i) =>
+        eventFilterActive
+          ? i.category === 'Gaming' ||
+            i.category === 'Gadgets' ||
+            i.category === 'Collectibles'
+          : true
+      )
       .filter((i) => {
         if (sortMode === 'saved') return likedItemIds.includes(i.id);
         if (sortMode === 'friends') return acceptedFriendIds.includes(i.owner_id);
@@ -962,6 +1124,7 @@ export function App() {
     likedItemIds,
     acceptedFriendIds,
     debouncedQuery,
+    eventFilterActive,
   ]);
 
   const paginatedMarketplaceItems = useMemo(
@@ -1226,7 +1389,11 @@ export function App() {
     }, 950);
   };
 
-  const handleSendTradeMessage = async (tradeId: string, text: string) => {
+  const handleSendTradeMessage = async (
+    tradeId: string,
+    text: string,
+    attachmentUrl?: string
+  ) => {
     const newMsg: TradeChatMessage = {
       id: `msg-${Date.now()}`,
       trade_id: tradeId,
@@ -1234,6 +1401,7 @@ export function App() {
       sender_name: currentUser.display_name,
       sender_avatar: currentUser.avatar_emoji,
       text,
+      attachment_url: attachmentUrl,
       created_at: 'Just now',
     };
 
@@ -1369,6 +1537,49 @@ export function App() {
 
     confetti({ particleCount: 65, spread: 60, origin: { y: 0.65 } });
     showToast('🔄 Counter-Offer sent! Both sides updated in the Trade Chat.');
+  };
+
+  const handleScheduleMeetup = (
+    tradeId: string,
+    spotName: string,
+    spotAddress: string,
+    timeSlot: string,
+    lat: number,
+    lng: number
+  ) => {
+    const meetupMsg: TradeChatMessage = {
+      id: `msg-meetup-${Date.now()}`,
+      trade_id: tradeId,
+      sender_id: currentUser.id,
+      sender_name: currentUser.display_name,
+      sender_avatar: currentUser.avatar_emoji,
+      text: `${currentUser.display_name} proposed a Safe Meetup at ${spotName} (${spotAddress}) for ${timeSlot}!`,
+      is_meetup_event: true,
+      created_at: 'Just now',
+    };
+
+    setTrades((prev) =>
+      prev.map((t) =>
+        t.id === tradeId
+          ? {
+              ...t,
+              meetup_spot_name: spotName,
+              meetup_spot_address: spotAddress,
+              meetup_time_slot: timeSlot,
+              meetup_lat: lat,
+              meetup_lng: lng,
+              messages: [...(t.messages || []), meetupMsg],
+            }
+          : t
+      )
+    );
+
+    setCurrentUser((prev) => ({
+      ...prev,
+      xp: prev.xp + 20,
+    }));
+    confetti({ particleCount: 55, spread: 60, origin: { y: 0.65 } });
+    showToast(`📍 Scheduled Safe Meetup at ${spotName} (${timeSlot})! (+20 XP)`);
   };
 
   const handleUpdateTradeStatus = async (
@@ -2000,6 +2211,88 @@ export function App() {
                 </div>
               </div>
 
+              {/* LIVE VILLAGE SWAP EVENT, WANTED BOARD (ISO) & DAILY STREAK STRIP */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !eventFilterActive;
+                    setEventFilterActive(next);
+                    showToast(
+                      next
+                        ? '🎪 Filtering Plaza to Weekend Event Items (Gaming, Gadgets & Collectibles)!'
+                        : '🌿 Showing all village categories.'
+                    );
+                  }}
+                  className={`p-2.5 rounded-2xl border-2 text-left flex items-center justify-between transition-all ${
+                    eventFilterActive
+                      ? 'bg-[#FFF0EC] border-[#FF7E67] shadow-sm'
+                      : 'bg-[#FFFDF7] border-[#D8C5A0] hover:bg-[#F5E9CE]/60'
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-extrabold uppercase text-[#C84B31] block">
+                      🎪 Live Weekend Event • 2x XP
+                    </span>
+                    <span className="font-game text-xs font-bold text-[#4A3520] block truncate">
+                      Retro Gaming & Gadgets Fest
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-lg bg-[#FF7E67] text-white text-[10px] font-extrabold shrink-0">
+                    {eventFilterActive ? 'Active ✓' : 'Filter'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsWantedBoardOpen(true)}
+                  className="p-2.5 rounded-2xl bg-[#FFFDF7] hover:bg-[#F5E9CE]/60 border-2 border-[#D8C5A0] text-left flex items-center justify-between transition-all"
+                >
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-extrabold uppercase text-[#2F7A4C] block">
+                      📌 Village Wanted Board
+                    </span>
+                    <span className="font-game text-xs font-bold text-[#4A3520] block truncate">
+                      {wantedPosts.length} ISO Wishes Pinned
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-lg bg-[#EBF7EE] text-[#2F7A4C] border border-[#8BD1A0] text-[10px] font-extrabold shrink-0">
+                    Open →
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleClaimDailyStreak}
+                  className={`p-2.5 rounded-2xl border-2 text-left flex items-center justify-between transition-all ${
+                    dailyStreakClaimed
+                      ? 'bg-[#EBF7EE] border-[#8BD1A0]'
+                      : 'bg-[#FFF6E0] border-[#F6B93B] hover:bg-[#F6B93B]/20'
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-extrabold uppercase text-[#8C5800] flex items-center gap-1">
+                      <Flame className="w-3 h-3 text-[#FF7E67]" />
+                      <span>Daily Village Streak</span>
+                    </span>
+                    <span className="font-game text-xs font-bold text-[#4A3520] block truncate">
+                      {dailyStreakClaimed
+                        ? 'Streak Claimed Today! ✓'
+                        : 'Claim +30 XP & +10 KP'}
+                    </span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold shrink-0 ${
+                      dailyStreakClaimed
+                        ? 'bg-[#4E9F6E] text-white'
+                        : 'bg-[#F6B93B] text-[#4A3520]'
+                    }`}
+                  >
+                    {dailyStreakClaimed ? 'Done' : 'Claim'}
+                  </span>
+                </button>
+              </div>
+
               {/* Debounced Search Bar */}
               <div className="relative">
                 <Search className="w-4 h-4 text-[#8C6D46] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -2386,6 +2679,61 @@ export function App() {
                         </p>
                       </div>
                     </div>
+
+                    {/* Safe Meetup Ticket or Schedule Meetup Button */}
+                    {trade.meetup_spot_name ? (
+                      <div className="p-2.5 rounded-2xl bg-[#EBF7EE] border-2 border-[#8BD1A0] flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-extrabold uppercase text-[#2F7A4C] block">
+                            📍 Scheduled Safe Meetup ({trade.meetup_time_slot})
+                          </span>
+                          <p className="font-game text-xs font-bold text-[#4A3520] truncate">
+                            {trade.meetup_spot_name}
+                          </p>
+                          <p className="text-[10px] font-bold text-[#7C6246] truncate">
+                            {trade.meetup_spot_address}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                              trade.meetup_spot_name
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 rounded-xl bg-[#4E9F6E] text-white text-[10px] font-extrabold flex items-center gap-1"
+                          >
+                            <Navigation className="w-3 h-3" />
+                            <span>Maps</span>
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setChatModalInitialMode('meetup');
+                              setActiveChatTradeId(trade.id);
+                            }}
+                            className="px-2 py-1.5 rounded-xl bg-white border border-[#8BD1A0] text-[#2F7A4C] text-[10px] font-extrabold"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChatModalInitialMode('meetup');
+                          setActiveChatTradeId(trade.id);
+                        }}
+                        className="w-full py-2 px-3 rounded-2xl bg-[#EBF7EE] hover:bg-[#DDF2E3] border border-[#8BD1A0] text-[#2F7A4C] text-xs font-extrabold flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span>Pick a Safe Public Meetup Cafe / Library & Time</span>
+                        </span>
+                        <span className="text-[10px] underline">Schedule →</span>
+                      </button>
+                    )}
 
                     {/* Latest Chat Message Preview */}
                     <div
@@ -2993,10 +3341,20 @@ export function App() {
           onClose={() => setInspectedItem(null)}
           onProposeTrade={(item) => setTradeTargetItem(item)}
           onAskQuestion={handleAskQuestionFromItem}
+          onAddPublicComment={handleAddPublicComment}
           onReportItem={handleReportItem}
           onBlockUser={handleBlockUser}
           onShareItem={(item) => setSharingItem(item)}
           onEditItem={(item) => setEditingItem(item)}
+        />
+
+        <WantedBoardModal
+          isOpen={isWantedBoardOpen}
+          currentUser={currentUser}
+          wantedPosts={wantedPosts}
+          onClose={() => setIsWantedBoardOpen(false)}
+          onAddWantedPost={handleAddWantedPost}
+          onFulfillWanted={handleFulfillWanted}
         />
 
         <TradeChatAndCounterModal
@@ -3007,6 +3365,7 @@ export function App() {
           onClose={() => setActiveChatTradeId(null)}
           onSendMessage={handleSendTradeMessage}
           onSubmitCounterOffer={handleSubmitCounterOffer}
+          onScheduleMeetup={handleScheduleMeetup}
         />
 
         <MeetupPinModal
