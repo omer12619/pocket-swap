@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: pocket-swap
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_SUPABASE_URL
+        value: https://cwlffynxezwjqkhlaflm.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        value: sb_publishable_zjtXYkqPcbwTMJWU1nDv-Q_4SYjtldQ
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
