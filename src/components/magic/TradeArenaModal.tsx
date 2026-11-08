@@ -17,6 +17,13 @@ const RARITY_POINTS: Record<ItemRarity, number> = {
   Legendary: 4,
 };
 
+const COZY_SWEETENERS = [
+  { id: 'coffee', label: '☕ + Buy You a Coffee', bonus: 0.6 },
+  { id: 'treat', label: '🥐 + Bakery Treat', bonus: 0.5 },
+  { id: 'travel', label: '🚗 + I’ll Travel to You', bonus: 0.7 },
+  { id: 'karma', label: '✨ +50 Bonus Karma Tip', bonus: 0.8 },
+];
+
 export const TradeArenaModal: React.FC<TradeArenaModalProps> = ({
   targetItem,
   myInventory,
@@ -24,11 +31,18 @@ export const TradeArenaModal: React.FC<TradeArenaModalProps> = ({
   onSubmitTrade,
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedSweeteners, setSelectedSweeteners] = useState<string[]>([]);
   const [message, setMessage] = useState('');
 
   if (!targetItem) return null;
 
   const tradeableItems = myInventory.filter((i) => i.is_for_trade);
+
+  const toggleSweetener = (id: string) => {
+    setSelectedSweeteners((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
 
   const toggleItem = (id: string) => {
     setSelectedIds((prev) =>
@@ -68,14 +82,21 @@ export const TradeArenaModal: React.FC<TradeArenaModalProps> = ({
     return Math.round((rarityBase + conditionBonus + vintageBonus + wishBonus) * 10) / 10;
   };
 
+  const sweetenerScore = selectedSweeteners.reduce((acc, sid) => {
+    const found = COZY_SWEETENERS.find((s) => s.id === sid);
+    return acc + (found?.bonus || 0);
+  }, 0);
+
   const targetScore = computeItemAppraisalScore(targetItem, false);
   const offeredScore =
     Math.round(
-      selectedIds.reduce((acc, id) => {
+      (selectedIds.reduce((acc, id) => {
         const found = myInventory.find((i) => i.id === id);
         if (!found) return acc;
         return acc + computeItemAppraisalScore(found, true);
-      }, 0) * 10
+      }, 0) +
+        sweetenerScore) *
+        10
     ) / 10;
 
   const fairnessRatio = Math.min(100, Math.round((offeredScore / targetScore) * 75));
@@ -95,11 +116,19 @@ export const TradeArenaModal: React.FC<TradeArenaModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedIds.length === 0) return;
+    const sweetenerLabels = selectedSweeteners
+      .map((sid) => COZY_SWEETENERS.find((s) => s.id === sid)?.label)
+      .filter(Boolean);
+    const sweetenerSuffix =
+      sweetenerLabels.length > 0
+        ? ` [Sweeteners included: ${sweetenerLabels.join(', ')}]`
+        : '';
     onSubmitTrade(
       targetItem,
       selectedIds,
-      message.trim() ||
-        `Hi ${targetItem.owner_name}! Would love to swap for your ${targetItem.title}! 🌿`
+      (message.trim() ||
+        `Hi ${targetItem.owner_name}! Would love to swap for your ${targetItem.title}! 🌿`) +
+        sweetenerSuffix
     );
   };
 
@@ -265,6 +294,35 @@ export const TradeArenaModal: React.FC<TradeArenaModalProps> = ({
                   })}
                 </div>
               )}
+            </div>
+
+            {/* Cozy Trade Sweeteners (Cashless Perks to Balance Any Swap) */}
+            <div>
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-[#5C4328] mb-1.5">
+                🎁 Add Cozy Trade Sweeteners (Optional Perks to Boost Match %)
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {COZY_SWEETENERS.map((sw) => {
+                  const active = selectedSweeteners.includes(sw.id);
+                  return (
+                    <button
+                      key={sw.id}
+                      type="button"
+                      onClick={() => toggleSweetener(sw.id)}
+                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-extrabold border text-left flex items-center justify-between transition-all ${
+                        active
+                          ? 'bg-[#FFF6E0] border-[#F6B93B] text-[#4A3520] shadow-sm'
+                          : 'bg-white border-[#D8C5A0] text-[#7C6246] hover:bg-[#FFFDF7]'
+                      }`}
+                    >
+                      <span className="truncate">{sw.label}</span>
+                      <span className="text-[9px] text-[#2F7A4C] ml-1 shrink-0">
+                        +{sw.bonus}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Friendly Message Note */}

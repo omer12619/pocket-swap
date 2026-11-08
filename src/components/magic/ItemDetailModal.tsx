@@ -315,6 +315,45 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               </p>
             </div>
 
+            {/* 📜 Item Provenance & Village Swap Lineage Timeline */}
+            <div className="p-3.5 rounded-2xl bg-[#FFFDF7] border-2 border-[#D8C5A0] space-y-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#2F7A4C] block">
+                📜 Village Provenance & Ownership Chain
+              </span>
+              <div className="space-y-1.5 text-[11px] font-bold text-[#5C4328]">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#FFF6E0] border border-[#EED9B3] flex items-center justify-center text-[10px]">
+                    1
+                  </span>
+                  <span>
+                    Crafted in <strong>{item.year_made || 2023}</strong> by{' '}
+                    <strong>{item.brand || 'Original Maker'}</strong> ({eraLabel})
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#EBF7EE] border border-[#8BD1A0] flex items-center justify-center text-[10px]">
+                    2
+                  </span>
+                  <span>
+                    Appraised as <strong>{item.condition}</strong> & listed by{' '}
+                    <strong>
+                      {item.owner_avatar} {item.owner_name}
+                    </strong>{' '}
+                    (Lv.{item.owner_level})
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#F5E9CE] border border-[#D8C5A0] flex items-center justify-center text-[10px]">
+                    3
+                  </span>
+                  <span>
+                    📍 Verified local pickup at{' '}
+                    <strong>{item.location_name}</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Wishlist Box */}
             <div className="p-3 rounded-2xl bg-[#FFF6E0] border-2 border-[#EED9B3] flex items-start gap-2">
               <Sparkles className="w-4 h-4 text-[#E59819] shrink-0 mt-0.5" />

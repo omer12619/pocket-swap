@@ -28,6 +28,7 @@ interface FriendsListModalProps {
   onInspectFriendProfile: (friendId: string) => void;
   onFilterByFriendsItems: () => void;
   onWaveToFriend: (friendName: string) => void;
+  onQuickTradeWithFriend?: (item: TradeItem) => void;
 }
 
 export const FriendsListModal: React.FC<FriendsListModalProps> = ({
@@ -43,6 +44,7 @@ export const FriendsListModal: React.FC<FriendsListModalProps> = ({
   onInspectFriendProfile,
   onFilterByFriendsItems,
   onWaveToFriend,
+  onQuickTradeWithFriend,
 }) => {
   const [tab, setTab] = useState<'friends' | 'requests' | 'discover'>('friends');
   const [searchQuery, setSearchQuery] = useState('');
@@ -184,9 +186,11 @@ export const FriendsListModal: React.FC<FriendsListModalProps> = ({
                   </div>
                 ) : (
                   acceptedFriends.map((friend) => {
-                    const friendItemsCount = allItems.filter(
+                    const friendItems = allItems.filter(
                       (i) => i.owner_id === friend.friend_id && i.is_for_trade
-                    ).length;
+                    );
+                    const friendItemsCount = friendItems.length;
+                    const firstFriendItem = friendItems[0];
 
                     return (
                       <div
@@ -259,9 +263,23 @@ export const FriendsListModal: React.FC<FriendsListModalProps> = ({
                           >
                             <Backpack className="w-3.5 h-3.5" />
                             <span>
-                              View Passport & Items ({friendItemsCount})
+                              Items ({friendItemsCount})
                             </span>
                           </button>
+
+                          {firstFriendItem && onQuickTradeWithFriend && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onClose();
+                                onQuickTradeWithFriend(firstFriendItem);
+                              }}
+                              className="py-2 px-3 rounded-xl bg-[#FF7E67] hover:bg-[#EC6A52] text-white font-game text-xs font-bold flex items-center gap-1 shadow-sm"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Swap</span>
+                            </button>
+                          )}
 
                           <button
                             type="button"

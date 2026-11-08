@@ -83,7 +83,13 @@ import {
 } from './lib/gameAudio';
 
 type ActiveTab = 'explore' | 'radar' | 'pocket' | 'trades' | 'passport';
-type SortMode = 'closest' | 'friends' | 'rarity' | 'vintage' | 'saved';
+type SortMode =
+  | 'closest'
+  | 'matches'
+  | 'friends'
+  | 'rarity'
+  | 'vintage'
+  | 'saved';
 
 const CATEGORIES: ItemCategory[] = [
   'All',
@@ -250,6 +256,9 @@ export function App() {
     );
   });
   const [eventFilterActive, setEventFilterActive] = useState<boolean>(false);
+  const [tradeStatusFilter, setTradeStatusFilter] = useState<
+    'all' | 'active' | 'completed'
+  >('all');
   const [isEditProfileOpen, setIsEditProfileOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState<boolean>(false);
@@ -1095,6 +1104,7 @@ export function App() {
       .filter((i) => {
         if (sortMode === 'saved') return likedItemIds.includes(i.id);
         if (sortMode === 'friends') return acceptedFriendIds.includes(i.owner_id);
+        if (sortMode === 'matches') return checkHasWishlistMatch(i);
         return true;
       })
       .filter((i) =>
@@ -2310,6 +2320,7 @@ export function App() {
                 {(
                   [
                     { id: 'closest', label: '📍 Closest' },
+                    { id: 'matches', label: '🎯 Wants My Items' },
                     {
                       id: 'friends',
                       label: `🤝 Friends' Items (${acceptedFriendIds.length})`,
@@ -2455,6 +2466,52 @@ export function App() {
                 </button>
               </div>
 
+              {/* 📊 Pocket Valuation & Demand Analytics Strip */}
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="p-3 rounded-2xl bg-[#FFFDF7] border-2 border-[#D8C5A0] text-center">
+                  <span className="font-game text-base font-bold text-[#4E9F6E] block">
+                    {myInventory.reduce(
+                      (acc, i) => acc + (RARITY_WEIGHT[i.rarity] || 1) * 2.5,
+                      0
+                    )}{' '}
+                    pts
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase text-[#8C6D46]">
+                    Pocket Appraisal
+                  </span>
+                </div>
+                <div className="p-3 rounded-2xl bg-[#FFFDF7] border-2 border-[#D8C5A0] text-center">
+                  <span className="font-game text-base font-bold text-[#FF7E67] block">
+                    ❤️{' '}
+                    {myInventory.reduce((acc, i) => acc + (i.likes_count || 0), 0)}
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase text-[#8C6D46]">
+                    Community Likes
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setItems((prev) =>
+                      prev.map((i) =>
+                        i.owner_id === currentUser.id
+                          ? { ...i, is_for_trade: true }
+                          : i
+                      )
+                    );
+                    showToast('🟢 Marked all items in your Pocket as Up for Trade!');
+                  }}
+                  className="p-3 rounded-2xl bg-[#EBF7EE] hover:bg-[#DDF2E3] border-2 border-[#8BD1A0] text-center transition-colors"
+                >
+                  <span className="font-game text-xs font-bold text-[#2F7A4C] block">
+                    🟢 Activate All
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase text-[#4E9F6E]">
+                    1-Tap Trade All
+                  </span>
+                </button>
+              </div>
+
               <div className="rounded-3xl bg-[#F5E9CE] border-3 border-[#D8C5A0] p-3">
                 <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#6E5031] mb-2 flex items-center justify-between px-1">
                   <span>✨ Quick Equipment Slots</span>
@@ -2548,15 +2605,49 @@ export function App() {
           {/* ========================================================= */}
           {activeTab === 'trades' && (
             <div className="space-y-4">
-              <div className="rounded-3xl bg-[#FFFDF7] border-[3px] border-[#D8C5A0] p-4 shadow-cozy">
-                <h2 className="font-game text-lg font-bold text-[#4A3520] flex items-center gap-2">
-                  <span>⚔️ Active Trades, Chat & Counter-Offers</span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs bg-[#FFF0EC] text-[#FF7E67]">
-                    {trades.length} Total
-                  </span>
-                </h2>
-                <p className="text-xs font-bold text-[#7C6246] mt-0.5">
-                  Chat with traders to ask questions, propose counter-offers, or verify meetup PINs!
+              <div className="rounded-3xl bg-[#FFFDF7] border-[3px] border-[#D8C5A0] p-4 shadow-cozy space-y-2.5">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h2 className="font-game text-lg font-bold text-[#4A3520] flex items-center gap-2">
+                    <span>⚔️ Active Trades, Chat & Counter-Offers</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs bg-[#FFF0EC] text-[#FF7E67]">
+                      {trades.length} Total
+                    </span>
+                  </h2>
+                  <div className="flex items-center gap-1.5">
+                    {(
+                      [
+                        { id: 'all', label: `All (${trades.length})` },
+                        {
+                          id: 'active',
+                          label: `Active (${
+                            trades.filter((t) => t.status !== 'completed' && t.status !== 'declined').length
+                          })`,
+                        },
+                        {
+                          id: 'completed',
+                          label: `Completed (${
+                            trades.filter((t) => t.status === 'completed').length
+                          })`,
+                        },
+                      ] as const
+                    ).map((tf) => (
+                      <button
+                        key={tf.id}
+                        type="button"
+                        onClick={() => setTradeStatusFilter(tf.id)}
+                        className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold border transition-all ${
+                          tradeStatusFilter === tf.id
+                            ? 'bg-[#4E9F6E] text-white border-[#367A51]'
+                            : 'bg-[#FFF9EB] text-[#6E5031] border-[#D8C5A0]'
+                        }`}
+                      >
+                        {tf.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs font-bold text-[#7C6246]">
+                  Chat with traders to ask questions, propose counter-offers, schedule safe meetups, or verify meetup PINs!
                 </p>
               </div>
 
@@ -2565,7 +2656,15 @@ export function App() {
                   phoneFrameMode ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2'
                 }`}
               >
-              {trades.map((trade) => {
+              {trades
+                .filter((t) => {
+                  if (tradeStatusFilter === 'active')
+                    return t.status !== 'completed' && t.status !== 'declined';
+                  if (tradeStatusFilter === 'completed')
+                    return t.status === 'completed';
+                  return true;
+                })
+                .map((trade) => {
                 const requestedItem = items.find(
                   (i) => i.id === trade.requested_item_id
                 );
@@ -3155,6 +3254,59 @@ export function App() {
                   ))}
                 </div>
               </div>
+
+              {/* CLOUD SYNC & DATA CONTROLS CARD */}
+              <div className="rounded-3xl bg-[#F5E9CE]/70 border-2 border-[#D8C5A0] p-4 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="font-game text-xs font-bold text-[#4A3520] block">
+                    ☁️ Cloud Storage & Pocket Data Backup
+                  </span>
+                  <span className="text-[11px] font-bold text-[#7C6246]">
+                    {supabaseConnected
+                      ? '🟢 Connected to Supabase Cloud'
+                      : 'Local + Cloud Hybrid Sync Active'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => syncWithSupabase()}
+                    className="px-3 py-1.5 rounded-xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white text-xs font-extrabold"
+                  >
+                    ☁️ Sync Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const blob = new Blob(
+                        [
+                          JSON.stringify(
+                            {
+                              user: currentUser,
+                              items: myInventory,
+                              trades,
+                              exportedAt: new Date().toISOString(),
+                            },
+                            null,
+                            2
+                          ),
+                        ],
+                        { type: 'application/json' }
+                      );
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `pocketswap-backup-${currentUser.username}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      showToast('💾 Downloaded your Pocket Inventory JSON backup!');
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#FFF9EB] border border-[#D8C5A0] text-[#5C4328] text-xs font-extrabold"
+                  >
+                    💾 Export Backup
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </main>
@@ -3333,6 +3485,7 @@ export function App() {
           onWaveToFriend={(friendName) =>
             showToast(`👋 You waved at ${friendName}! They waved back 🌿`)
           }
+          onQuickTradeWithFriend={(item) => setTradeTargetItem(item)}
         />
 
         <ItemDetailModal

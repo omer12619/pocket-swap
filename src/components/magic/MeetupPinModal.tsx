@@ -150,8 +150,8 @@ export const MeetupPinModal: React.FC<MeetupPinModalProps> = ({
               </label>
             </div>
 
-            {/* 4-Digit Meetup PIN Handshake */}
-            <div className="p-3.5 rounded-2xl bg-[#F5E9CE] border-2 border-[#D8C5A0] space-y-2">
+            {/* 4-Digit Meetup PIN & In-Person QR Handshake */}
+            <div className="p-3.5 rounded-2xl bg-[#F5E9CE] border-2 border-[#D8C5A0] space-y-2.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-extrabold uppercase text-[#5C4328] flex items-center gap-1.5">
                   <KeyRound className="w-3.5 h-3.5 text-[#4E9F6E]" />
@@ -169,14 +169,28 @@ export const MeetupPinModal: React.FC<MeetupPinModalProps> = ({
                 </button>
               </div>
 
-              <input
-                type="text"
-                maxLength={4}
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
-                placeholder={`Enter ${expectedPin}`}
-                className="w-full text-center tracking-[0.5em] font-game text-xl font-bold py-2.5 rounded-2xl bg-white border-2 border-[#D8C5A0] text-[#4A3520] focus:outline-none focus:border-[#4E9F6E]"
-              />
+              <div className="flex items-center gap-3">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&color=4A3520&bgcolor=FFF9EB&margin=4&data=${encodeURIComponent(
+                    `POCKETSWAP-PIN:${expectedPin}`
+                  )}`}
+                  alt="Meetup Handshake QR"
+                  className="w-16 h-16 rounded-xl border-2 border-[#D8C5A0] shrink-0"
+                />
+                <div className="flex-1 space-y-1">
+                  <input
+                    type="text"
+                    maxLength={4}
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    placeholder={`Enter ${expectedPin}`}
+                    className="w-full text-center tracking-[0.45em] font-game text-xl font-bold py-2 rounded-2xl bg-white border-2 border-[#D8C5A0] text-[#4A3520] focus:outline-none focus:border-[#4E9F6E]"
+                  />
+                  <span className="block text-[10px] font-bold text-[#7C6246] text-center">
+                    📱 Show QR or exchange 4-digit code in person
+                  </span>
+                </div>
+              </div>
             </div>
 
             {error && (

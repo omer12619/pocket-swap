@@ -507,58 +507,176 @@ export const RadarMapView: React.FC<RadarMapViewProps> = ({
           )}
         </div>
       ) : (
-        <div className="relative w-full aspect-square max-h-[360px] rounded-3xl overflow-hidden border-4 border-[#D8C5A0] shadow-cozy bg-[#BEE3C8] select-none">
-          {/* Stylized Cozy Map Terrain SVG Background */}
+        <div className="relative w-full aspect-square max-h-[380px] rounded-3xl overflow-hidden border-4 border-[#5C4328] shadow-cozy bg-[#A7D7C5] select-none">
+          {/* Rich Illustrated Cozy Island & Village Radar SVG */}
           <svg
             viewBox="0 0 400 400"
-            className="absolute inset-0 w-full h-full object-cover opacity-80"
+            className="absolute inset-0 w-full h-full object-cover"
           >
-            <rect width="400" height="400" fill="#CBE8BA" />
-            <circle cx="95" cy="95" r="55" fill="#B5DF9F" />
-            <circle cx="310" cy="290" r="70" fill="#B5DF9F" />
+            <defs>
+              <radialGradient id="cozyIslandGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#E6F4D7" />
+                <stop offset="68%" stopColor="#C5E5B4" />
+                <stop offset="88%" stopColor="#EDD9A3" />
+                <stop offset="100%" stopColor="#7EC4CF" />
+              </radialGradient>
+              <linearGradient id="riverStream" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#7EC4CF" />
+                <stop offset="100%" stopColor="#5AA9E6" />
+              </linearGradient>
+            </defs>
+
+            {/* Ocean Water Base */}
+            <rect width="400" height="400" fill="#7EC4CF" />
+
+            {/* Cozy Island Landmass & Sandy Beach */}
+            <circle cx="200" cy="200" r="178" fill="#EDD9A3" />
+            <circle cx="200" cy="200" r="164" fill="url(#cozyIslandGrad)" />
+
+            {/* Lush Forest Groves */}
+            <circle cx="105" cy="105" r="42" fill="#A8D597" opacity="0.7" />
+            <circle cx="295" cy="110" r="38" fill="#A8D597" opacity="0.7" />
+            <circle cx="100" cy="285" r="40" fill="#A8D597" opacity="0.7" />
+            <circle cx="295" cy="290" r="45" fill="#A8D597" opacity="0.7" />
+
+            {/* Winding Village River */}
             <path
-              d="M 0 310 Q 120 270 210 330 T 400 280 L 400 400 L 0 400 Z"
-              fill="#88CDE9"
+              d="M 28 245 Q 125 225 200 265 T 372 230"
+              stroke="url(#riverStream)"
+              strokeWidth="16"
+              fill="none"
+              strokeLinecap="round"
             />
+
+            {/* Cobblestone Village Paths */}
             <path
-              d="M 50 200 Q 200 190 350 200"
-              stroke="#F2E2C4"
-              strokeWidth="18"
+              d="M 45 200 L 355 200"
+              stroke="#E8D3B0"
+              strokeWidth="12"
+              strokeDasharray="8 4"
               fill="none"
               strokeLinecap="round"
             />
             <path
-              d="M 200 40 Q 195 200 205 360"
-              stroke="#F2E2C4"
-              strokeWidth="18"
+              d="M 200 45 L 200 355"
+              stroke="#E8D3B0"
+              strokeWidth="12"
+              strokeDasharray="8 4"
               fill="none"
               strokeLinecap="round"
             />
+
+            {/* Wooden River Bridge */}
+            <rect
+              x="188"
+              y="252"
+              width="24"
+              height="24"
+              rx="5"
+              fill="#B88655"
+              stroke="#6E4720"
+              strokeWidth="2"
+            />
+
+            {/* Town Center Cobblestone Plaza Circle */}
+            <circle
+              cx="200"
+              cy="200"
+              r="34"
+              fill="#F5E9CE"
+              stroke="#D8C5A0"
+              strokeWidth="3"
+            />
+
+            {/* Radar Distance Rings (35%, 60%, 82%) */}
+            <circle
+              cx="200"
+              cy="200"
+              r="65"
+              fill="none"
+              stroke="#2F7A4C"
+              strokeWidth="1.5"
+              strokeDasharray="4 4"
+              opacity="0.45"
+            />
+            <circle
+              cx="200"
+              cy="200"
+              r="112"
+              fill="none"
+              stroke="#2F7A4C"
+              strokeWidth="1.5"
+              strokeDasharray="5 5"
+              opacity="0.45"
+            />
+            <circle
+              cx="200"
+              cy="200"
+              r="152"
+              fill="none"
+              stroke="#2F7A4C"
+              strokeWidth="1.5"
+              strokeDasharray="6 6"
+              opacity="0.45"
+            />
+
+            {/* Decorative Village Trees & Landmarks */}
+            <text x="88" y="92" fontSize="14">🌲🌳</text>
+            <text x="285" y="96" fontSize="14">🌳🏡</text>
+            <text x="82" y="295" fontSize="14">☕🥐</text>
+            <text x="288" y="302" fontSize="14">⚓⛵</text>
           </svg>
 
-          {/* Animated Radar Sweep Rings */}
+          {/* Compass Cardinal Directions & Distance Ring Labels */}
+          <span className="absolute top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-[#4A3520]/85 text-[#FFF9EB] text-[9px] font-extrabold tracking-widest z-10">
+            ▲ NORTH ({radiusKm}km range)
+          </span>
+          <span className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-[#4A3520]/80 text-[#FFF9EB] text-[9px] font-extrabold z-10">
+            ▼ HARBOR SOUTH
+          </span>
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-lg bg-[#4A3520]/75 text-[#FFF9EB] text-[9px] font-extrabold z-10">
+            ◀ W
+          </span>
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-lg bg-[#4A3520]/75 text-[#FFF9EB] text-[9px] font-extrabold z-10">
+            E ▶
+          </span>
+
+          {/* Distance Ring Pills */}
+          <span
+            style={{ left: '50%', top: '33%' }}
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.2 rounded bg-[#FFF9EB]/80 text-[#2F7A4C] text-[8px] font-extrabold border border-[#8BD1A0]"
+          >
+            {(radiusKm * 0.35).toFixed(1)} km
+          </span>
+          <span
+            style={{ left: '50%', top: '21%' }}
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.2 rounded bg-[#FFF9EB]/80 text-[#2F7A4C] text-[8px] font-extrabold border border-[#8BD1A0]"
+          >
+            {(radiusKm * 0.7).toFixed(1)} km
+          </span>
+
+          {/* Animated Radar Pulse Rings */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-28 h-28 rounded-full border-2 border-[#4E9F6E]/40 radar-ring" />
+            <div className="w-28 h-28 rounded-full border-2 border-[#4E9F6E]/45 radar-ring" />
             <div
               className="w-56 h-56 rounded-full border-2 border-[#4E9F6E]/30 radar-ring"
               style={{ animationDelay: '1.2s' }}
             />
-            <div className="w-72 h-72 rounded-full border border-dashed border-[#367A51]/40" />
           </div>
 
           {/* Center Pin: Current Player Avatar */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
-            <div className="px-2 py-0.5 rounded-full bg-[#4A3520] text-white text-[10px] font-extrabold mb-1 shadow">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center pointer-events-none">
+            <div className="px-2 py-0.5 rounded-full bg-[#4A3520] text-[#FFF9EB] text-[9px] font-extrabold mb-0.5 shadow border border-[#F6B93B] whitespace-nowrap">
               YOU ({currentUser.display_name})
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-[#FFF9EB] border-3 border-[#4E9F6E] shadow-lg flex items-center justify-center text-2xl animate-bounce">
+            <div className="w-11 h-11 rounded-2xl bg-[#FFF9EB] border-3 border-[#4E9F6E] shadow-lg flex items-center justify-center text-xl">
               {currentUser.avatar_emoji}
             </div>
           </div>
 
           {/* Empty State Overlay When No Pins Match Filter */}
           {nearbyFilteredItems.length === 0 && (
-            <div className="absolute inset-x-6 top-6 z-30 p-3 rounded-2xl bg-[#FFF9EB]/95 border-2 border-[#D8C5A0] text-center shadow-lg space-y-1.5">
+            <div className="absolute inset-x-6 bottom-8 z-30 p-3 rounded-2xl bg-[#FFF9EB]/95 border-2 border-[#D8C5A0] text-center shadow-lg space-y-1.5">
               <p className="font-game text-xs font-bold text-[#4A3520]">
                 🔍 No radar pins match this filter within {radiusKm} km
               </p>
@@ -578,18 +696,21 @@ export const RadarMapView: React.FC<RadarMapViewProps> = ({
             </div>
           )}
 
-          {/* Nearby Filtered Item Pins */}
-          {nearbyFilteredItems.map((item, index) => {
-            const dLat = (item.latitude - currentUser.latitude) * 2800;
-            const dLng = (item.longitude - currentUser.longitude) * 2800;
-            const clampedX = Math.max(
-              -140,
-              Math.min(140, dLng || (index % 2 === 0 ? 75 : -80))
+          {/* Collision-Free Polar Radar Pins for Nearby Items */}
+          {nearbyFilteredItems.slice(0, 10).map((item, index, arr) => {
+            const total = arr.length;
+            // Evenly distribute pins around the compass using golden-ratio offset + true bearing
+            const baseAngle =
+              (index * (2 * Math.PI)) / Math.max(1, total) - Math.PI / 3;
+            const distRatio = Math.min(
+              1,
+              Math.max(0.18, (item.distance_km ?? 0.8) / Math.max(2, radiusKm))
             );
-            const clampedY = Math.max(
-              -135,
-              Math.min(135, -dLat || (index < 2 ? -65 : 70))
-            );
+            // Keep radius between 25% and 41% of container width so pins NEVER touch center or edges
+            const radiusPct = 25 + distRatio * 15 + (index % 2 === 0 ? 0 : 3);
+            const leftPct = 50 + Math.cos(baseAngle) * radiusPct;
+            const topPct = 50 + Math.sin(baseAngle) * radiusPct;
+
             const isSelected = selectedPinItem?.id === item.id;
             const isFriend = friendIds.includes(item.owner_id);
 
@@ -602,15 +723,17 @@ export const RadarMapView: React.FC<RadarMapViewProps> = ({
                 whileTap={{ scale: 0.92 }}
                 onClick={() => setSelectedPinItem(item)}
                 style={{
-                  left: `calc(50% + ${clampedX}px)`,
-                  top: `calc(50% + ${clampedY}px)`,
+                  left: `${leftPct}%`,
+                  top: `${topPct}%`,
                 }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 z-30 flex flex-col items-center group"
+                className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group ${
+                  isSelected ? 'z-40' : 'z-30'
+                }`}
               >
                 <div
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold shadow-sm mb-1 whitespace-nowrap transition-all ${
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold shadow-md mb-0.5 whitespace-nowrap transition-all ${
                     isSelected
-                      ? 'bg-[#FF7E67] text-white scale-110'
+                      ? 'bg-[#FF7E67] text-white scale-110 ring-2 ring-white'
                       : isFriend
                       ? 'bg-[#EBF7EE] text-[#2F7A4C] border border-[#4E9F6E]'
                       : 'bg-[#FFF9EB] text-[#4A3520] border border-[#D8C5A0]'
@@ -619,9 +742,9 @@ export const RadarMapView: React.FC<RadarMapViewProps> = ({
                   {item.owner_avatar} {(item.distance_km ?? 0.6).toFixed(1)}km
                 </div>
                 <div
-                  className={`w-11 h-11 rounded-2xl overflow-hidden border-2 shadow-md transition-transform ${
+                  className={`w-11 h-11 rounded-2xl overflow-hidden border-2 shadow-md transition-transform bg-[#FFF9EB] ${
                     isSelected
-                      ? 'border-[#FF7E67] ring-4 ring-[#FF7E67]/30 scale-110'
+                      ? 'border-[#FF7E67] ring-4 ring-[#FF7E67]/35 scale-110'
                       : 'border-white hover:scale-105'
                   }`}
                 >

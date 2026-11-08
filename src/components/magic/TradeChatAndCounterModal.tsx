@@ -39,11 +39,12 @@ interface TradeChatAndCounterModalProps {
 }
 
 const QUICK_QUESTIONS = [
+  '🚶 On my way to the meetup spot now!',
+  '☕ I’m here! Grabbed a table near the entrance 👋',
   'What year is this item from & are you the original owner?',
   'Any scratches, dents, or battery wear I should know about?',
   'Does it come with the original box & accessories?',
   'Would you be open to a counter-offer if I add another item?',
-  'Can we meet at a local cafe this afternoon to inspect & swap?',
 ];
 
 const SAFE_MEETUP_SPOTS = [
@@ -422,7 +423,7 @@ export const TradeChatAndCounterModal: React.FC<TradeChatAndCounterModalProps> =
                             isMe ? 'text-white/75 text-right' : 'text-[#8C6D46]'
                           }`}
                         >
-                          {msg.created_at}
+                          {msg.created_at} {isMe && '• ✓✓ Seen'}
                         </span>
                       </div>
                     </div>

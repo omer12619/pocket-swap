@@ -106,6 +106,48 @@ export const QuestsAndRewardsModal: React.FC<QuestsAndRewardsModalProps> = ({
               </div>
             </div>
 
+            {/* Season 1 Cozy Village Pass Level Progression Track */}
+            <div className="p-3.5 rounded-3xl bg-[#FFFDF7] border-2 border-[#D8C5A0] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold uppercase text-[#5C4328]">
+                  🏆 Season 1 Village Pass Milestones
+                </span>
+                <span className="text-[10px] font-extrabold text-[#4E9F6E]">
+                  Current: Lv.{currentUser.level}
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { lv: 2, title: '🌱 Sprout', reward: 'Unlocks ISO Board' },
+                  { lv: 5, title: '🌿 Regular', reward: 'Buddy Badge' },
+                  { lv: 8, title: '🦊 Curator', reward: 'Gold Frame' },
+                  { lv: 12, title: '👑 Mayor', reward: 'Legendary Title' },
+                ].map((tier) => {
+                  const unlocked = currentUser.level >= tier.lv;
+                  return (
+                    <div
+                      key={tier.lv}
+                      className={`p-2 rounded-2xl border text-center ${
+                        unlocked
+                          ? 'bg-[#EBF7EE] border-[#4E9F6E]'
+                          : 'bg-[#F5E9CE]/60 border-[#D8C5A0] opacity-70'
+                      }`}
+                    >
+                      <span className="font-game text-[11px] font-bold text-[#4A3520] block">
+                        Lv.{tier.lv}
+                      </span>
+                      <span className="text-[10px] font-extrabold text-[#2F7A4C] block truncate">
+                        {tier.title}
+                      </span>
+                      <span className="text-[9px] font-bold text-[#7C6246] block truncate">
+                        {unlocked ? '✓ Unlocked' : tier.reward}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Quests List */}
             <div className="space-y-2.5">
               {quests.map((q) => {
