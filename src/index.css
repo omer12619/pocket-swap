@@ -1,0 +1,77 @@
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+    background-color: #E8D8B9;
+    background-image: radial-gradient(#D2BE99 1.5px, transparent 1.5px), radial-gradient(#D2BE99 1.5px, #E8D8B9 1.5px);
+    background-size: 28px 28px;
+    background-position: 0 0, 14px 14px;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-game {
+    font-family: 'Fredoka', 'Nunito', system-ui, sans-serif;
+    letter-spacing: 0.01em;
+  }
+}
+
+/* Cozy 21st.dev Magic Shimmer & Rarity Effects */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes radarPing {
+  0% { transform: scale(0.4); opacity: 0.85; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.animate-float {
+  animation: floatSlow 3.2s ease-in-out infinite;
+}
+
+.radar-ring {
+  animation: radarPing 2.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.holo-legendary {
+  background: linear-gradient(
+    115deg,
+    rgba(255, 215, 0, 0.15) 0%,
+    rgba(255, 126, 103, 0.22) 25%,
+    rgba(104, 185, 232, 0.22) 50%,
+    rgba(165, 105, 189, 0.22) 75%,
+    rgba(255, 215, 0, 0.15) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 5s linear infinite;
+}
+
+/* Hide scrollbars inside horizontal pill bars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom Leaflet Map Markers for PocketSwap */
+.pocketswap-leaflet-icon {
+  background: transparent !important;
+  border: none !important;
+}
+.leaflet-container {
+  font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+  z-index: 10;
+}
