@@ -96,6 +96,94 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // 1b. GET /api/state — Load Shared Village Cloud State via Admin Client
+  if (req.method === 'GET' && url.pathname === '/api/state') {
+    try {
+      const { data, error } = await supabaseAdmin.storage
+        .from('item-media')
+        .download('cloud-db/state.json');
+      if (error || !data) {
+        return sendJson(res, 200, {
+          items: [],
+          trades: [],
+          profiles: [],
+          reviews: [],
+          wantedPosts: [],
+          friends: [],
+          updatedAt: new Date().toISOString(),
+        });
+      }
+      const text = await data.text();
+      const parsed = JSON.parse(text);
+      return sendJson(res, 200, parsed);
+    } catch (err) {
+      return sendJson(res, 500, { error: String(err) });
+    }
+  }
+
+  // 1c. POST /api/state — Save Shared Village Cloud State via Admin Client (Bypasses Storage RLS safely)
+  if (req.method === 'POST' && url.pathname === '/api/state') {
+    const body = await parseBody(req);
+    try {
+      const payload = JSON.stringify({
+        items: Array.isArray(body.items) ? body.items : [],
+        trades: Array.isArray(body.trades) ? body.trades : [],
+        profiles: Array.isArray(body.profiles) ? body.profiles : [],
+        reviews: Array.isArray(body.reviews) ? body.reviews : [],
+        wantedPosts: Array.isArray(body.wantedPosts) ? body.wantedPosts : [],
+        friends: Array.isArray(body.friends) ? body.friends : [],
+        updatedAt: new Date().toISOString(),
+      });
+      const { error } = await supabaseAdmin.storage
+        .from('item-media')
+        .upload('cloud-db/state.json', Buffer.from(payload, 'utf-8'), {
+          contentType: 'application/json',
+          upsert: true,
+        });
+      if (error) {
+        return sendJson(res, 500, { error: error.message });
+      }
+      return sendJson(res, 200, { ok: true });
+    } catch (err) {
+      return sendJson(res, 500, { error: String(err) });
+    }
+  }
+
+  // 1d. POST /api/media/upload — Upload Item / Chat Photo or Video to Supabase Storage via Admin Client
+  if (req.method === 'POST' && url.pathname === '/api/media/upload') {
+    const body = await parseBody(req);
+    const { dataUrl, ext = 'webp' } = body;
+    if (!dataUrl || typeof dataUrl !== 'string') {
+      return sendJson(res, 400, { error: 'Missing dataUrl' });
+    }
+    try {
+      const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) {
+        return sendJson(res, 400, { error: 'Invalid dataUrl format' });
+      }
+      const contentType = matches[1];
+      const buffer = Buffer.from(matches[2], 'base64');
+      const filePath = `uploads/item-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 7)}.${ext}`;
+      const { error } = await supabaseAdmin.storage
+        .from('item-media')
+        .upload(filePath, buffer, {
+          contentType,
+          upsert: true,
+        });
+      if (error) {
+        return sendJson(res, 500, { error: error.message });
+      }
+      const { data } = supabaseAdmin.storage
+        .from('item-media')
+        .getPublicUrl(filePath);
+      return sendJson(res, 200, { ok: true, publicUrl: data.publicUrl });
+    } catch (err) {
+      return sendJson(res, 500, { error: String(err) });
+    }
+  }
+
   // 2. POST /api/trades/complete — Trusted Server-Side Atomic Meetup Swap
   if (req.method === 'POST' && url.pathname === '/api/trades/complete') {
     const body = await parseBody(req);

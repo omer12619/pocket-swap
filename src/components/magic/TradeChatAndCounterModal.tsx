@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { TradeItem, TradeOffer, UserProfile } from '../../types/game';
 import { optimizeImageFile } from '../../lib/mediaOptimizer';
+import { uploadItemMediaToSupabase } from '../../lib/supabase';
 
 interface TradeChatAndCounterModalProps {
   trade: TradeOffer | null;
@@ -154,7 +155,8 @@ export const TradeChatAndCounterModal: React.FC<TradeChatAndCounterModalProps> =
     setIsUploadingPhoto(true);
     try {
       const res = await optimizeImageFile(file);
-      setChatPhotoUrl(res.dataUrl);
+      const uploadedUrl = await uploadItemMediaToSupabase(res.dataUrl, 'webp');
+      setChatPhotoUrl(uploadedUrl || res.dataUrl);
     } catch {
       // Fallback
     } finally {

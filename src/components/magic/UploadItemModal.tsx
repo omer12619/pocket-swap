@@ -23,7 +23,7 @@ import {
   TradeItem,
   UserProfile,
 } from '../../types/game';
-import { getSupabaseClient } from '../../lib/supabase';
+import { uploadItemMediaToSupabase } from '../../lib/supabase';
 import {
   formatBytes,
   optimizeImageFile,
@@ -49,48 +49,6 @@ const CONDITIONS: ItemCondition[] = [
   'Great 🌿',
   'Well-Loved 🧸',
   'Needs TLC 🛠️',
-];
-
-const QUICK_PRESETS = [
-  {
-    title: 'Nintendo Switch OLED (White Dock + Mario Wonder)',
-    category: 'Gaming' as const,
-    rarity: 'Legendary' as const,
-    year_made: 2023,
-    brand: 'Nintendo',
-    accessories_included: 'Original Box + White Dock + Joy-Con Grip + HDMI',
-    condition_notes: 'Glass screen protector installed since day 1, zero Joy-Con drift.',
-    media_type: 'image' as const,
-    media_url:
-      'https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?auto=format&fit=crop&w=900&q=80',
-    wishlist_hint: 'Looking for an iPad Mini, vintage camera, or audio gear!',
-  },
-  {
-    title: 'Sony Walkman TPS-L2 Cassette Player (Vintage)',
-    category: 'Gadgets' as const,
-    rarity: 'Legendary' as const,
-    year_made: 1984,
-    brand: 'Sony Classic',
-    accessories_included: 'Leather Case + Foam Headphones + 3 Mixtapes',
-    condition_notes: 'New drive belt installed in 2025, plays cassettes at exact pitch!',
-    media_type: 'image' as const,
-    media_url:
-      'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=900&q=80',
-    wishlist_hint: 'Mechanical keyboard, vinyl records, or Espresso machine!',
-  },
-  {
-    title: 'Live Vinyl Turntable Setup Showcase (Video)',
-    category: 'Home & Cozy' as const,
-    rarity: 'Epic' as const,
-    year_made: 2021,
-    brand: 'Audio-Technica',
-    accessories_included: 'Dust Cover + Ortofon Stylus + RCA Preamp Cable',
-    condition_notes: 'Stylus has less than 30 hours of spin time.',
-    media_type: 'video' as const,
-    media_url:
-      'https://assets.mixkit.co/videos/preview/mixkit-turntable-playing-a-vinyl-record-42921-large.mp4',
-    wishlist_hint: 'Rare collectibles, guitars, or retro gaming consoles!',
-  },
 ];
 
 export const UploadItemModal: React.FC<UploadItemModalProps> = ({
@@ -170,27 +128,11 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
     setUploading(true);
     try {
       const optimized = await optimizeImageFile(file);
-      const supabase = getSupabaseClient();
-      if (supabase && optimized.blob) {
-        const filePath = `${currentUser.id}/gallery-${Date.now()}.webp`;
-        const { error } = await supabase.storage
-          .from('item-media')
-          .upload(filePath, optimized.blob, {
-            upsert: true,
-            contentType: 'image/webp',
-          });
-        if (!error) {
-          const { data } = supabase.storage
-            .from('item-media')
-            .getPublicUrl(filePath);
-          if (data?.publicUrl) {
-            setGalleryUrls((prev) => [...prev, data.publicUrl]);
-            setUploading(false);
-            return;
-          }
-        }
-      }
-      setGalleryUrls((prev) => [...prev, optimized.dataUrl]);
+      const uploadedUrl = await uploadItemMediaToSupabase(
+        optimized.dataUrl,
+        'webp'
+      );
+      setGalleryUrls((prev) => [...prev, uploadedUrl || optimized.dataUrl]);
     } catch {
       // Ignore extra photo error
     } finally {
@@ -214,30 +156,12 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
 
       setCompressionStats(optimized);
 
-      const supabase = getSupabaseClient();
-      if (supabase && optimized.blob) {
-        const ext = isVideo ? file.name.split('.').pop() || 'mp4' : 'webp';
-        const filePath = `${currentUser.id}/${Date.now()}.${ext}`;
-        const { error } = await supabase.storage
-          .from('item-media')
-          .upload(filePath, optimized.blob, {
-            upsert: true,
-            contentType: isVideo ? file.type : 'image/webp',
-          });
-
-        if (!error) {
-          const { data } = supabase.storage
-            .from('item-media')
-            .getPublicUrl(filePath);
-          if (data?.publicUrl) {
-            setMediaUrl(data.publicUrl);
-            setUploading(false);
-            return;
-          }
-        }
-      }
-
-      setMediaUrl(optimized.dataUrl);
+      const ext = isVideo ? file.name.split('.').pop() || 'mp4' : 'webp';
+      const uploadedUrl = await uploadItemMediaToSupabase(
+        optimized.dataUrl,
+        ext
+      );
+      setMediaUrl(uploadedUrl || optimized.dataUrl);
       setUploading(false);
     } catch (err) {
       setMediaError(
@@ -247,31 +171,15 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
     }
   };
 
-  const applyPreset = (preset: (typeof QUICK_PRESETS)[0]) => {
-    setTitle(preset.title);
-    setCategory(preset.category);
-    setRarity(preset.rarity);
-    setYearMade(preset.year_made);
-    setBrand(preset.brand);
-    setAccessoriesIncluded(preset.accessories_included);
-    setConditionNotes(preset.condition_notes);
-    setMediaType(preset.media_type);
-    setMediaUrl(preset.media_url);
-    setWishlistHint(preset.wishlist_hint);
-    setCompressionStats(null);
-    setMediaError(null);
-    setDescription(
-      `Super clean ${preset.year_made} ${preset.title}! Ready for a local trade in ${currentUser.location_name}.`
-    );
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+    if (!mediaUrl.trim()) {
+      setMediaError('Please snap or upload a photo/video of your item first!');
+      return;
+    }
 
-    const finalMediaUrl =
-      mediaUrl.trim() ||
-      'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=900&q=80';
+    const finalMediaUrl = mediaUrl.trim();
 
     if (editingItem && onUpdateItem) {
       const updatedItem: TradeItem = {
@@ -390,28 +298,6 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
           </div>
 
           <form onSubmit={handleSubmit} className="p-4 space-y-4">
-            {/* Quick 1-Tap Demo Presets */}
-            <div>
-              <span className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8C6D46] mb-1.5">
-                ⚡ Quick Fill Demo Presets (With Year & Condition Specs)
-              </span>
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-                {QUICK_PRESETS.map((preset, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => applyPreset(preset)}
-                    className="shrink-0 px-2.5 py-1.5 rounded-xl bg-[#F5E9CE] hover:bg-[#E9D7B2] border border-[#D8C5A0] text-[11px] font-extrabold text-[#5C4328] flex items-center gap-1"
-                  >
-                    <span>{preset.media_type === 'video' ? '🎬' : '📸'}</span>
-                    <span className="truncate max-w-[140px]">
-                      ({preset.year_made}) {preset.title}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Photo / Video Upload Dropzone */}
             <div>
               <input

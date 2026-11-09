@@ -8,6 +8,7 @@ interface TradeArenaModalProps {
   myInventory: TradeItem[];
   onClose: () => void;
   onSubmitTrade: (targetItem: TradeItem, offeredItemIds: string[], message: string) => void;
+  onOpenUpload?: () => void;
 }
 
 const RARITY_POINTS: Record<ItemRarity, number> = {
@@ -29,6 +30,7 @@ export const TradeArenaModal: React.FC<TradeArenaModalProps> = ({
   myInventory,
   onClose,
   onSubmitTrade,
+  onOpenUpload,
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedSweeteners, setSelectedSweeteners] = useState<string[]>([]);
@@ -243,8 +245,22 @@ export const TradeArenaModal: React.FC<TradeArenaModalProps> = ({
               </div>
 
               {tradeableItems.length === 0 ? (
-                <div className="p-4 rounded-2xl bg-[#F5E9CE] text-center text-xs font-bold text-[#7C6246]">
-                  You have no items marked "Up for Trade" in your pocket! Add an item first.
+                <div className="p-4 rounded-2xl bg-[#F5E9CE] border-2 border-dashed border-[#D8C5A0] text-center space-y-2">
+                  <p className="text-xs font-bold text-[#5C4328]">
+                    🎒 You don’t have any items marked "Up for Trade" in your Pocket yet!
+                  </p>
+                  {onOpenUpload && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenUpload();
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-sm"
+                    >
+                      + Add an Item to Your Pocket First (+25 XP)
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-2.5 max-h-48 overflow-y-auto p-1">

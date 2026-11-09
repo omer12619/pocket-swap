@@ -173,7 +173,27 @@ export const WantedBoardModal: React.FC<WantedBoardModalProps> = ({
 
             {/* Wanted Posts List */}
             <div className="space-y-2.5">
-              {wantedPosts.map((post) => {
+              {wantedPosts.length === 0 ? (
+                <div className="p-6 rounded-2xl bg-[#FFFDF7] border-2 border-dashed border-[#D8C5A0] text-center space-y-2">
+                  <div className="text-3xl">📌</div>
+                  <h4 className="font-game text-sm font-bold text-[#4A3520]">
+                    No ISO Wish Notes Pinned Yet!
+                  </h4>
+                  <p className="text-xs font-bold text-[#7C6246]">
+                    Looking for a specific game, charger, book, tool, or plant cutting? Pin the first wish note so neighbors know what to offer you!
+                  </p>
+                  {!showForm && (
+                    <button
+                      type="button"
+                      onClick={() => setShowForm(true)}
+                      className="px-4 py-2 rounded-xl bg-[#4E9F6E] text-white font-game text-xs font-bold shadow-sm"
+                    >
+                      + Pin First Wish Note (+15 XP)
+                    </button>
+                  )}
+                </div>
+              ) : (
+                wantedPosts.map((post) => {
                 const isMine = post.user_id === currentUser.id;
                 return (
                   <div
@@ -231,7 +251,8 @@ export const WantedBoardModal: React.FC<WantedBoardModalProps> = ({
                     )}
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
           </div>
         </motion.div>

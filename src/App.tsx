@@ -47,7 +47,6 @@ import {
 } from './types/game';
 import {
   calculateDistanceKm,
-  generateCommunityWave,
   getSupabaseClient,
   INITIAL_CURRENT_USER,
   INITIAL_FRIENDS,
@@ -105,93 +104,54 @@ const RARITY_WEIGHT: Record<ItemRarity, number> = {
 
 const PAGE_SIZE = 6;
 
-const INITIAL_WANTED_POSTS: WantedPost[] = [
-  {
-    id: 'wanted-1',
-    user_id: 'user-2',
-    user_name: 'Berry Raccoon',
-    user_avatar: '🦝',
-    user_level: 11,
-    user_karma: 4.98,
-    looking_for: 'Nintendo 3DS Charger or GBA Link Cable',
-    category: 'Gaming',
-    offering_hint: 'Atomic Purple GameBoy Color or Cozy Ceramic Mug',
-    location_name: 'Sunnyvale Plaza',
-    created_at: '35m ago',
-  },
-  {
-    id: 'wanted-2',
-    user_id: 'user-3',
-    user_name: 'Mochi Cat',
-    user_avatar: '🐱',
-    user_level: 7,
-    user_karma: 4.91,
-    looking_for: 'Fujifilm Instax Mini Film Pack or Vintage Camera Strap',
-    category: 'Gadgets',
-    offering_hint: 'Keychron Mechanical Keycaps or Studio Ghibli Artbook',
-    location_name: 'Rose Garden',
-    created_at: '2h ago',
-  },
-  {
-    id: 'wanted-3',
-    user_id: 'user-4',
-    user_name: 'Sprout Frog',
-    user_avatar: '🐸',
-    user_level: 9,
-    user_karma: 4.95,
-    looking_for: 'Terracotta Plant Pots or Cozy Desk Lamp',
-    category: 'Home & Cozy',
-    offering_hint: 'Rooted Monstera & Pothos Cuttings or Matcha Whisk Set',
-    location_name: 'Oak Creek Park',
-    created_at: '4h ago',
-  },
-];
+const INITIAL_WANTED_POSTS: WantedPost[] = [];
 
 export function App() {
+  useEffect(() => {
+    // Purge legacy demo localStorage keys so all returning browsers start clean
+    const legacyKeys = [
+      'pocketswap_user',
+      'pocketswap_profiles_v2',
+      'pocketswap_friends_v1',
+      'pocketswap_items_v2',
+      'pocketswap_trades_v2',
+      'pocketswap_reviews',
+      'pocketswap_wanted_v1',
+    ];
+    legacyKeys.forEach((k) => localStorage.removeItem(k));
+  }, []);
+
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('pocketswap_user');
+    const saved = localStorage.getItem('pocketswap_user_v3');
     return saved ? JSON.parse(saved) : INITIAL_CURRENT_USER;
   });
 
   const [profiles, setProfiles] = useState<UserProfile[]>(() => {
-    const saved = localStorage.getItem('pocketswap_profiles_v2');
+    const saved = localStorage.getItem('pocketswap_profiles_v3');
     return saved ? JSON.parse(saved) : INITIAL_PROFILES;
   });
 
   const [friends, setFriends] = useState<FriendConnection[]>(() => {
-    const saved = localStorage.getItem('pocketswap_friends_v1');
+    const saved = localStorage.getItem('pocketswap_friends_v3');
     return saved ? JSON.parse(saved) : INITIAL_FRIENDS;
   });
 
   const [items, setItems] = useState<TradeItem[]>(() => {
-    const isDemoCleared =
-      localStorage.getItem('pocketswap_demo_cleared') === 'true';
-    const saved = localStorage.getItem('pocketswap_items_v2');
+    const saved = localStorage.getItem('pocketswap_items_v3');
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        if (isDemoCleared) return parsed;
-        if (parsed.length > 0) {
-          const existingIds = new Set(parsed.map((i: TradeItem) => i.id));
-          const missingDefaults = INITIAL_ITEMS.filter(
-            (i) => !existingIds.has(i.id)
-          );
-          return missingDefaults.length > 0
-            ? [...parsed, ...missingDefaults]
-            : parsed;
-        }
-      }
+      if (Array.isArray(parsed)) return parsed;
     }
-    return isDemoCleared ? [] : INITIAL_ITEMS;
+    return INITIAL_ITEMS;
   });
 
   const [trades, setTrades] = useState<TradeOffer[]>(() => {
-    const saved = localStorage.getItem('pocketswap_trades_v2');
+    const saved = localStorage.getItem('pocketswap_trades_v3');
     return saved ? JSON.parse(saved) : INITIAL_TRADES;
   });
 
   const [reviews, setReviews] = useState<KarmaReview[]>(() => {
-    const saved = localStorage.getItem('pocketswap_reviews');
+    const saved = localStorage.getItem('pocketswap_reviews_v3');
     return saved ? JSON.parse(saved) : INITIAL_KARMA_REVIEWS;
   });
 
@@ -239,7 +199,6 @@ export function App() {
   // Infinite Scroll & Pagination State
   const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
-  const [waveBatch, setWaveBatch] = useState<number>(1);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Modals
@@ -252,7 +211,7 @@ export function App() {
   const [meetupPinTradeId, setMeetupPinTradeId] = useState<string | null>(null);
   const [isWantedBoardOpen, setIsWantedBoardOpen] = useState<boolean>(false);
   const [wantedPosts, setWantedPosts] = useState<WantedPost[]>(() => {
-    const saved = localStorage.getItem('pocketswap_wanted_v1');
+    const saved = localStorage.getItem('pocketswap_wanted_v3');
     return saved ? JSON.parse(saved) : INITIAL_WANTED_POSTS;
   });
   const [dailyStreakClaimed, setDailyStreakClaimed] = useState<boolean>(() => {
@@ -306,27 +265,27 @@ export function App() {
 
   // Persist to LocalStorage
   useEffect(() => {
-    localStorage.setItem('pocketswap_user', JSON.stringify(currentUser));
+    localStorage.setItem('pocketswap_user_v3', JSON.stringify(currentUser));
   }, [currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('pocketswap_profiles_v2', JSON.stringify(profiles));
+    localStorage.setItem('pocketswap_profiles_v3', JSON.stringify(profiles));
   }, [profiles]);
 
   useEffect(() => {
-    localStorage.setItem('pocketswap_friends_v1', JSON.stringify(friends));
+    localStorage.setItem('pocketswap_friends_v3', JSON.stringify(friends));
   }, [friends]);
 
   useEffect(() => {
-    localStorage.setItem('pocketswap_items_v2', JSON.stringify(items));
+    localStorage.setItem('pocketswap_items_v3', JSON.stringify(items));
   }, [items]);
 
   useEffect(() => {
-    localStorage.setItem('pocketswap_trades_v2', JSON.stringify(trades));
+    localStorage.setItem('pocketswap_trades_v3', JSON.stringify(trades));
   }, [trades]);
 
   useEffect(() => {
-    localStorage.setItem('pocketswap_reviews', JSON.stringify(reviews));
+    localStorage.setItem('pocketswap_reviews_v3', JSON.stringify(reviews));
   }, [reviews]);
 
   useEffect(() => {
@@ -348,7 +307,7 @@ export function App() {
   }, [claimedQuestIds]);
 
   useEffect(() => {
-    localStorage.setItem('pocketswap_wanted_v1', JSON.stringify(wantedPosts));
+    localStorage.setItem('pocketswap_wanted_v3', JSON.stringify(wantedPosts));
   }, [wantedPosts]);
 
   const handleClaimDailyStreak = () => {
@@ -525,107 +484,30 @@ export function App() {
 
     try {
       // 1. Check live Supabase Cloud State (item-media/cloud-db/state.json)
-      const isDemoCleared =
-        localStorage.getItem('pocketswap_demo_cleared') === 'true';
       const cloudState = await loadCloudStateFromSupabase();
       if (cloudState && Array.isArray(cloudState.items)) {
-        if (isDemoCleared) {
-          const demoIds = new Set(INITIAL_ITEMS.map((i) => i.id));
-          const realItemsOnly = cloudState.items.filter(
-            (i) => !demoIds.has(i.id)
-          );
-          setItems(realItemsOnly);
-        } else if (cloudState.items.length > 0) {
-          const cloudIds = new Set(cloudState.items.map((i) => i.id));
-          const missingDefaults = INITIAL_ITEMS.filter(
-            (i) => !cloudIds.has(i.id)
-          );
-          const mergedCloudItems =
-            missingDefaults.length > 0
-              ? [...cloudState.items, ...missingDefaults]
-              : cloudState.items;
-          setItems(mergedCloudItems);
+        setItems(cloudState.items);
+        if (Array.isArray(cloudState.trades)) setTrades(cloudState.trades);
+        if (Array.isArray(cloudState.profiles) && cloudState.profiles.length > 0) {
+          setProfiles(cloudState.profiles);
         }
-        if (cloudState.trades) setTrades(cloudState.trades);
-        if (cloudState.profiles?.length) setProfiles(cloudState.profiles);
-        if (cloudState.reviews) setReviews(cloudState.reviews);
-        showToast(
-          `☁️ Live synced ${cloudState.items.length} items & ${
-            cloudState.trades?.length || 0
-          } trades from Supabase!`
-        );
+        if (Array.isArray(cloudState.reviews)) setReviews(cloudState.reviews);
+        if (Array.isArray(cloudState.wantedPosts)) {
+          setWantedPosts(cloudState.wantedPosts);
+        }
+        if (Array.isArray(cloudState.friends)) {
+          setFriends(cloudState.friends);
+        }
       } else {
-        // Seed initial state into Supabase Cloud Storage immediately
         await saveCloudStateToSupabase({
           items,
           trades,
           profiles,
           reviews,
+          wantedPosts,
+          friends,
           updatedAt: new Date().toISOString(),
         });
-        showToast('☁️ Connected & synced village data to Supabase Cloud!');
-      }
-
-      // 2. Also sync with PostgreSQL tables if schema.sql has been executed
-      const { data: existingItems, error } = await supabase
-        .from('items')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (!error && existingItems) {
-        if (existingItems.length === 0) {
-          await supabase.from('profiles').upsert(
-            INITIAL_PROFILES.map((p) => ({
-              id: p.id,
-              username: p.username,
-              display_name: p.display_name,
-              avatar_emoji: p.avatar_emoji,
-              title_badge: p.title_badge,
-              bio: p.bio,
-              karma_score: p.karma_score,
-              karma_points: p.karma_points,
-              karma_reviews_count: p.karma_reviews_count,
-              completed_trades: p.completed_trades,
-              level: p.level,
-              xp: p.xp,
-              latitude: p.latitude,
-              longitude: p.longitude,
-              location_name: p.location_name,
-              badges: p.badges,
-            }))
-          );
-
-          await supabase.from('items').upsert(
-            INITIAL_ITEMS.map((i) => ({
-              id: i.id,
-              owner_id: i.owner_id,
-              owner_name: i.owner_name,
-              owner_avatar: i.owner_avatar,
-              owner_karma: i.owner_karma,
-              owner_level: i.owner_level,
-              title: i.title,
-              description: i.description,
-              category: i.category,
-              condition: i.condition,
-              rarity: i.rarity,
-              year_made: i.year_made,
-              brand: i.brand,
-              accessories_included: i.accessories_included,
-              condition_notes: i.condition_notes,
-              media_url: i.media_url,
-              media_type: i.media_type,
-              wishlist_hint: i.wishlist_hint,
-              is_for_trade: i.is_for_trade,
-              latitude: i.latitude,
-              longitude: i.longitude,
-              location_name: i.location_name,
-              likes_count: i.likes_count,
-            }))
-          );
-        } else {
-          setItems(existingItems as TradeItem[]);
-        }
       }
     } catch {
       // Keep hybrid local state seamlessly
@@ -670,11 +552,13 @@ export function App() {
         trades,
         profiles,
         reviews,
+        wantedPosts,
+        friends,
         updatedAt: new Date().toISOString(),
       });
     }, 800);
     return () => clearTimeout(timer);
-  }, [items, trades, profiles, reviews, supabaseConnected]);
+  }, [items, trades, profiles, reviews, wantedPosts, friends, supabaseConnected]);
 
   // Friend System Handlers
   const acceptedFriendIds = useMemo(
@@ -1191,72 +1075,23 @@ export function App() {
   }, [activeTab, hasMorePages, isLoadingMore]);
 
   const handleCleanDemoData = async () => {
-    const demoItemIds = new Set(INITIAL_ITEMS.map((i) => i.id));
-    const demoTradeIds = new Set(INITIAL_TRADES.map((t) => t.id));
-    const demoReviewIds = new Set(INITIAL_KARMA_REVIEWS.map((r) => r.id));
-    const demoWantedIds = new Set(INITIAL_WANTED_POSTS.map((w) => w.id));
-
-    localStorage.setItem('pocketswap_demo_cleared', 'true');
-    const cleanItems = items.filter((i) => !demoItemIds.has(i.id));
-    const cleanTrades = trades.filter((t) => !demoTradeIds.has(t.id));
-    const cleanReviews = reviews.filter((r) => !demoReviewIds.has(r.id));
-    const cleanWanted = wantedPosts.filter((w) => !demoWantedIds.has(w.id));
-
-    setItems(cleanItems);
-    setTrades(cleanTrades);
-    setReviews(cleanReviews);
-    setWantedPosts(cleanWanted);
+    setItems([]);
+    setTrades([]);
+    setReviews([]);
+    setWantedPosts([]);
     setFriends([]);
 
     await saveCloudStateToSupabase({
-      items: cleanItems,
-      trades: cleanTrades,
-      profiles,
-      reviews: cleanReviews,
+      items: [],
+      trades: [],
+      profiles: [currentUser],
+      reviews: [],
+      wantedPosts: [],
+      friends: [],
       updatedAt: new Date().toISOString(),
     });
 
-    showToast(
-      '🧹 Cleaned all Demo NPC items, trades & reviews! Only real player items are now active.'
-    );
-  };
-
-  const handleRestoreDemoData = async () => {
-    localStorage.removeItem('pocketswap_demo_cleared');
-    const existingIds = new Set(items.map((i) => i.id));
-    const mergedItems = [
-      ...items,
-      ...INITIAL_ITEMS.filter((i) => !existingIds.has(i.id)),
-    ];
-    setItems(mergedItems);
-    if (trades.length === 0) setTrades(INITIAL_TRADES);
-    if (reviews.length === 0) setReviews(INITIAL_KARMA_REVIEWS);
-    if (wantedPosts.length === 0) setWantedPosts(INITIAL_WANTED_POSTS);
-    if (friends.length === 0) setFriends(INITIAL_FRIENDS);
-
-    await saveCloudStateToSupabase({
-      items: mergedItems,
-      trades: trades.length ? trades : INITIAL_TRADES,
-      profiles,
-      reviews: reviews.length ? reviews : INITIAL_KARMA_REVIEWS,
-      updatedAt: new Date().toISOString(),
-    });
-
-    showToast('🌱 Restored Demo Villagers & showcase items!');
-  };
-
-  const handleSpawnCommunityWave = () => {
-    const newBatch = generateCommunityWave(
-      currentUser.latitude,
-      currentUser.longitude,
-      waveBatch
-    );
-    setItems((prev) => [...prev, ...newBatch]);
-    setWaveBatch((prev) => prev + 1);
-    setVisibleCount((prev) => prev + PAGE_SIZE);
-    showToast(
-      `🚀 +${newBatch.length} new community items streamed into the feed!`
-    );
+    showToast('🧹 Reset Village Plaza & Cloud State!');
   };
 
   const handleAddItem = async (newItem: TradeItem) => {
@@ -1418,73 +1253,6 @@ export function App() {
     }
   };
 
-  const triggerSmartPartnerReply = (tradeId: string, userQuestion: string) => {
-    setTimeout(() => {
-      setTrades((prev) =>
-        prev.map((t) => {
-          if (t.id !== tradeId) return t;
-          const isSender = t.sender_id === currentUser.id;
-          const partnerId = isSender ? t.receiver_id : t.sender_id;
-          const partnerName = isSender ? t.receiver_name : t.sender_name;
-          const partnerAvatar = isSender ? t.receiver_avatar : t.sender_avatar;
-          const reqItem = items.find((i) => i.id === t.requested_item_id);
-
-          const lowerQ = userQuestion.toLowerCase();
-          let replyText = `Hey ${currentUser.display_name}! Thanks for asking — it's from ${
-            reqItem?.year_made || 2023
-          } (${reqItem?.brand || 'authentic'}) and in ${
-            reqItem?.condition || 'Mint ✨'
-          } condition. Includes ${
-            reqItem?.accessories_included || 'all accessories'
-          }!`;
-
-          if (
-            lowerQ.includes('scratch') ||
-            lowerQ.includes('condition') ||
-            lowerQ.includes('battery')
-          ) {
-            replyText = `Condition report: ${
-              reqItem?.condition_notes || 'Super clean and tested 100%!'
-            } Graded ${reqItem?.condition}.`;
-          } else if (lowerQ.includes('year') || lowerQ.includes('old')) {
-            replyText = `It's from ${reqItem?.year_made || 2023}, made by ${
-              reqItem?.brand || 'the original maker'
-            }. Kept in my collection carefully!`;
-          } else if (
-            lowerQ.includes('box') ||
-            lowerQ.includes('include') ||
-            lowerQ.includes('accessor')
-          ) {
-            replyText = `Yes! It comes with: ${
-              reqItem?.accessories_included || 'Original accessories'
-            }.`;
-          } else if (lowerQ.includes('counter')) {
-            replyText = `Totally open to a counter-offer! Tap the "Counter-Offer" tab above and show me what else you have in your Pocket 😊`;
-          } else if (lowerQ.includes('meet') || lowerQ.includes('cafe')) {
-            replyText = `Sounds great! I can meet at ${
-              reqItem?.location_name || 'the plaza cafe'
-            } today so we can both inspect the items in person.`;
-          }
-
-          const replyMsg: TradeChatMessage = {
-            id: `msg-reply-${Date.now()}`,
-            trade_id: tradeId,
-            sender_id: partnerId,
-            sender_name: partnerName,
-            sender_avatar: partnerAvatar,
-            text: replyText,
-            created_at: 'Just now',
-          };
-
-          return {
-            ...t,
-            messages: [...(t.messages || []), replyMsg],
-          };
-        })
-      );
-    }, 950);
-  };
-
   const handleSendTradeMessage = async (
     tradeId: string,
     text: string,
@@ -1508,8 +1276,6 @@ export function App() {
           : t
       )
     );
-
-    triggerSmartPartnerReply(tradeId, text);
 
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -1542,7 +1308,7 @@ export function App() {
       return;
     }
 
-    const defaultOfferedId = myInventory[0]?.id || 'item-my-1';
+    const defaultOfferedId = myInventory[0]?.id || '';
     const tradeId = `trade-q-${Date.now()}`;
     const firstMsg: TradeChatMessage = {
       id: `msg-${Date.now()}`,
@@ -1564,7 +1330,7 @@ export function App() {
       receiver_name: item.owner_name,
       receiver_avatar: item.owner_avatar,
       requested_item_id: item.id,
-      offered_item_ids: [defaultOfferedId],
+      offered_item_ids: defaultOfferedId ? [defaultOfferedId] : [],
       message: questionText,
       status: 'pending',
       counter_count: 0,
@@ -1578,7 +1344,6 @@ export function App() {
     setChatModalInitialMode('chat');
     setActiveChatTradeId(tradeId);
     setActiveTab('trades');
-    triggerSmartPartnerReply(tradeId, questionText);
   };
 
   const handleSubmitCounterOffer = (
@@ -1937,14 +1702,6 @@ export function App() {
                 <span>
                   {phoneFrameMode ? 'Switch to Desktop Website' : 'Switch to Phone Frame'}
                 </span>
-              </button>
-              <button
-                type="button"
-                onClick={handleSpawnCommunityWave}
-                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-left flex items-center gap-2"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#FF7E67]" />
-                <span>Simulate +4 New Items</span>
               </button>
               <button
                 type="button"
@@ -2460,55 +2217,112 @@ export function App() {
                 })}
               </div>
 
-              {/* Paginated Item Cards Feed */}
-              <div
-                className={`grid gap-4 ${
-                  phoneFrameMode
-                    ? 'grid-cols-1'
-                    : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
-                }`}
-              >
-                {paginatedMarketplaceItems.map((item) => (
-                  <MagicGameCard
-                    key={item.id}
-                    item={item}
-                    isOwnItem={item.owner_id === currentUser.id}
-                    isFriendItem={acceptedFriendIds.includes(item.owner_id)}
-                    isLiked={likedItemIds.includes(item.id)}
-                    hasWishlistMatch={checkHasWishlistMatch(item)}
-                    onLikeItem={handleToggleLikeItem}
-                    onProposeTrade={(target) => setTradeTargetItem(target)}
-                    onInspectItem={(target) => setInspectedItem(target)}
-                    onShareItem={(target) => setSharingItem(target)}
-                    onInspectProfile={(ownerId) => {
-                      setInspectedUserId(ownerId);
-                      setActiveTab('passport');
-                    }}
-                  />
-                ))}
-              </div>
+              {/* Paginated Item Cards Feed or Founding Villager Empty State */}
+              {filteredMarketplaceItems.length === 0 ? (
+                <div className="rounded-3xl bg-[#FFFDF7] border-[3px] border-dashed border-[#D8C5A0] p-6 text-center space-y-3 shadow-sm">
+                  <div className="text-4xl">🌱</div>
+                  <h3 className="font-game text-base sm:text-lg font-bold text-[#4A3520]">
+                    {selectedCategory !== 'All' ||
+                    debouncedQuery !== '' ||
+                    sortMode !== 'closest' ||
+                    eventFilterActive
+                      ? 'No Items Match Your Current Filter'
+                      : 'The Local Trade Plaza is Fresh & Open!'}
+                  </h3>
+                  <p className="text-xs font-bold text-[#7C6246] max-w-md mx-auto">
+                    {selectedCategory !== 'All' ||
+                    debouncedQuery !== '' ||
+                    sortMode !== 'closest' ||
+                    eventFilterActive
+                      ? 'Try resetting your category or search filter, or post an item in this category!'
+                      : `Be the first Founding Villager around ${currentUser.location_name} to post an item for swap (+25 XP) or pin a wish to the Wanted Board!`}
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    {(selectedCategory !== 'All' ||
+                      debouncedQuery !== '' ||
+                      sortMode !== 'closest' ||
+                      eventFilterActive) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory('All');
+                          setSearchInput('');
+                          setSortMode('closest');
+                          setEventFilterActive(false);
+                        }}
+                        className="px-4 py-2.5 rounded-2xl bg-[#F5E9CE] hover:bg-[#E8D5B0] text-[#5C4328] font-game text-xs font-bold"
+                      >
+                        Reset All Filters
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsUploadOpen(true)}
+                      className="px-4 py-2.5 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-cozy-green"
+                    >
+                      + Post Your First Item (+25 XP)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsWantedBoardOpen(true)}
+                      className="px-4 py-2.5 rounded-2xl bg-[#FFF6E0] hover:bg-[#F6B93B]/30 border-2 border-[#F6B93B] text-[#4A3520] font-game text-xs font-bold"
+                    >
+                      📌 Pin an ISO Wish Note
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div
+                    className={`grid gap-4 ${
+                      phoneFrameMode
+                        ? 'grid-cols-1'
+                        : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
+                    }`}
+                  >
+                    {paginatedMarketplaceItems.map((item) => (
+                      <MagicGameCard
+                        key={item.id}
+                        item={item}
+                        isOwnItem={item.owner_id === currentUser.id}
+                        isFriendItem={acceptedFriendIds.includes(item.owner_id)}
+                        isLiked={likedItemIds.includes(item.id)}
+                        hasWishlistMatch={checkHasWishlistMatch(item)}
+                        onLikeItem={handleToggleLikeItem}
+                        onProposeTrade={(target) => setTradeTargetItem(target)}
+                        onInspectItem={(target) => setInspectedItem(target)}
+                        onShareItem={(target) => setSharingItem(target)}
+                        onInspectProfile={(ownerId) => {
+                          setInspectedUserId(ownerId);
+                          setActiveTab('passport');
+                        }}
+                      />
+                    ))}
+                  </div>
 
-              {/* Infinite Scroll Sentinel */}
-              <div
-                ref={loadMoreSentinelRef}
-                className="py-4 flex flex-col items-center justify-center gap-2"
-              >
-                {hasMorePages ? (
-                  <div className="flex items-center gap-2 text-xs font-extrabold text-[#6E5031]">
-                    <Loader2 className="w-4 h-4 animate-spin text-[#4E9F6E]" />
-                    <span>
-                      Loading more nearby treasures ({paginatedMarketplaceItems.length}{' '}
-                      of {filteredMarketplaceItems.length})...
-                    </span>
+                  {/* Infinite Scroll Sentinel */}
+                  <div
+                    ref={loadMoreSentinelRef}
+                    className="py-4 flex flex-col items-center justify-center gap-2"
+                  >
+                    {hasMorePages ? (
+                      <div className="flex items-center gap-2 text-xs font-extrabold text-[#6E5031]">
+                        <Loader2 className="w-4 h-4 animate-spin text-[#4E9F6E]" />
+                        <span>
+                          Loading more nearby treasures ({paginatedMarketplaceItems.length}{' '}
+                          of {filteredMarketplaceItems.length})...
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="w-full rounded-2xl bg-[#F5E9CE]/70 border-2 border-dashed border-[#D8C5A0] p-3.5 text-center">
+                        <p className="text-xs font-extrabold text-[#5C4328]">
+                          🌟 Showing all {filteredMarketplaceItems.length} nearby items in this category!
+                        </p>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="w-full rounded-2xl bg-[#F5E9CE]/70 border-2 border-dashed border-[#D8C5A0] p-3.5 text-center">
-                    <p className="text-xs font-extrabold text-[#5C4328]">
-                      🌟 You’re all caught up on nearby items in this category!
-                    </p>
-                  </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           )}
 
@@ -2693,27 +2507,46 @@ export function App() {
                 </div>
               </div>
 
-              <div
-                className={`grid gap-4 ${
-                  phoneFrameMode
-                    ? 'grid-cols-1'
-                    : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
-                }`}
-              >
-                {myInventory.map((item) => (
-                  <MagicGameCard
-                    key={item.id}
-                    item={item}
-                    isOwnItem={true}
-                    onProposeTrade={() => {}}
-                    onInspectItem={(target) => setInspectedItem(target)}
-                    onToggleForTrade={handleToggleForTrade}
-                    onDeleteItem={handleDeleteOwnItem}
-                    onEditItem={(target) => setEditingItem(target)}
-                    onShareItem={(target) => setSharingItem(target)}
-                  />
-                ))}
-              </div>
+              {myInventory.length === 0 ? (
+                <div className="rounded-3xl bg-[#FFFDF7] border-[3px] border-dashed border-[#D8C5A0] p-6 text-center space-y-3 shadow-sm">
+                  <div className="text-4xl">🎒</div>
+                  <h3 className="font-game text-base font-bold text-[#4A3520]">
+                    Your 20-Slot Pocket Inventory is Empty!
+                  </h3>
+                  <p className="text-xs font-bold text-[#7C6246] max-w-md mx-auto">
+                    Snap a photo of a game, gadget, book, plant cutting, or craft item you’d love to trade locally to fill Slot #1 and earn +25 XP!
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadOpen(true)}
+                    className="px-5 py-2.5 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-cozy-green"
+                  >
+                    + Add Your First Item (+25 XP)
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className={`grid gap-4 ${
+                    phoneFrameMode
+                      ? 'grid-cols-1'
+                      : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
+                  }`}
+                >
+                  {myInventory.map((item) => (
+                    <MagicGameCard
+                      key={item.id}
+                      item={item}
+                      isOwnItem={true}
+                      onProposeTrade={() => {}}
+                      onInspectItem={(target) => setInspectedItem(target)}
+                      onToggleForTrade={handleToggleForTrade}
+                      onDeleteItem={handleDeleteOwnItem}
+                      onEditItem={(target) => setEditingItem(target)}
+                      onShareItem={(target) => setSharingItem(target)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -2767,6 +2600,40 @@ export function App() {
                   Chat with traders to ask questions, propose counter-offers, schedule safe meetups, or verify meetup PINs!
                 </p>
               </div>
+
+              {trades.filter((t) => {
+                if (tradeStatusFilter === 'active')
+                  return t.status !== 'completed' && t.status !== 'declined';
+                if (tradeStatusFilter === 'completed')
+                  return t.status === 'completed';
+                return true;
+              }).length === 0 ? (
+                <div className="rounded-3xl bg-[#FFFDF7] border-[3px] border-dashed border-[#D8C5A0] p-6 text-center space-y-3 shadow-sm">
+                  <div className="text-4xl">⚔️</div>
+                  <h3 className="font-game text-base font-bold text-[#4A3520]">
+                    No Trade Offers Yet
+                  </h3>
+                  <p className="text-xs font-bold text-[#7C6246] max-w-md mx-auto">
+                    Browse the Trade Plaza and tap "Offer Trade" on any item, or post items to your Pocket so nearby villagers can send you offers!
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('explore')}
+                      className="px-4 py-2.5 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-cozy-green"
+                    >
+                      🧭 Explore Trade Plaza
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsUploadOpen(true)}
+                      className="px-4 py-2.5 rounded-2xl bg-[#F5E9CE] hover:bg-[#E8D5B0] text-[#5C4328] font-game text-xs font-bold"
+                    >
+                      + Post Item to Pocket
+                    </button>
+                  </div>
+                </div>
+              ) : null}
 
               <div
                 className={`grid gap-4 ${
@@ -3346,34 +3213,40 @@ export function App() {
                 <h3 className="font-game text-base font-bold text-[#4A3520]">
                   💬 Trader Karma Wall ({reviews.length})
                 </h3>
-                <div className="space-y-2.5">
-                  {reviews.map((rev) => (
-                    <div
-                      key={rev.id}
-                      className="p-3 rounded-2xl bg-[#FFF9EB] border border-[#E6D5B5] space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base">{rev.reviewer_avatar}</span>
-                          <span className="text-xs font-extrabold text-[#4A3520]">
-                            {rev.reviewer_name}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-lg bg-[#EBF7EE] text-[#2F7A4C] text-[10px] font-extrabold">
-                            {rev.vibe_badge}
-                          </span>
+                {reviews.length === 0 ? (
+                  <div className="p-4 rounded-2xl bg-[#FFF9EB] border border-dashed border-[#D8C5A0] text-center text-xs font-bold text-[#7C6246]">
+                    🌟 No Karma reviews yet! Complete an in-person swap using the Meetup Handshake PIN/QR to earn 5★ Karma & Vibe Badges.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {reviews.map((rev) => (
+                      <div
+                        key={rev.id}
+                        className="p-3 rounded-2xl bg-[#FFF9EB] border border-[#E6D5B5] space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{rev.reviewer_avatar}</span>
+                            <span className="text-xs font-extrabold text-[#4A3520]">
+                              {rev.reviewer_name}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-lg bg-[#EBF7EE] text-[#2F7A4C] text-[10px] font-extrabold">
+                              {rev.vibe_badge}
+                            </span>
+                          </div>
+                          <div className="flex items-center text-[#F6B93B]">
+                            {Array.from({ length: rev.stars }).map((_, i) => (
+                              <Star key={i} className="w-3 h-3 fill-[#F6B93B]" />
+                            ))}
+                          </div>
                         </div>
-                        <div className="flex items-center text-[#F6B93B]">
-                          {Array.from({ length: rev.stars }).map((_, i) => (
-                            <Star key={i} className="w-3 h-3 fill-[#F6B93B]" />
-                          ))}
-                        </div>
+                        <p className="text-xs font-semibold text-[#5C4328]">
+                          “{rev.comment}”
+                        </p>
                       </div>
-                      <p className="text-xs font-semibold text-[#5C4328]">
-                        “{rev.comment}”
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* CLOUD SYNC & DATA CONTROLS CARD */}
@@ -3394,14 +3267,7 @@ export function App() {
                     onClick={handleCleanDemoData}
                     className="px-3 py-1.5 rounded-xl bg-[#FFF0EC] hover:bg-[#FFE0D6] border border-[#FF7E67] text-[#C84B31] text-xs font-extrabold"
                   >
-                    🧹 Clean Demo Data
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRestoreDemoData}
-                    className="px-3 py-1.5 rounded-xl bg-[#EBF7EE] hover:bg-[#D7F0DF] border border-[#8BD1A0] text-[#2F7A4C] text-xs font-extrabold"
-                  >
-                    🌱 Restore Demo
+                    🧹 Reset All Data
                   </button>
                   <button
                     type="button"
@@ -3596,6 +3462,7 @@ export function App() {
           onLikeAndSave={handleToggleLikeItem}
           onProposeTrade={(item) => setTradeTargetItem(item)}
           onInspectItem={(item) => setInspectedItem(item)}
+          onOpenUpload={() => setIsUploadOpen(true)}
         />
 
         <FriendsListModal
@@ -3697,6 +3564,7 @@ export function App() {
           myInventory={myInventory}
           onClose={() => setTradeTargetItem(null)}
           onSubmitTrade={handleSubmitTrade}
+          onOpenUpload={() => setIsUploadOpen(true)}
         />
 
         <UploadItemModal

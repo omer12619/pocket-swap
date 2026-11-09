@@ -21,6 +21,7 @@ interface SwipeMatchModalProps {
   onLikeAndSave: (itemId: string) => void;
   onProposeTrade: (item: TradeItem) => void;
   onInspectItem: (item: TradeItem) => void;
+  onOpenUpload?: () => void;
 }
 
 export const SwipeMatchModal: React.FC<SwipeMatchModalProps> = ({
@@ -31,6 +32,7 @@ export const SwipeMatchModal: React.FC<SwipeMatchModalProps> = ({
   onLikeAndSave,
   onProposeTrade,
   onInspectItem,
+  onOpenUpload,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState<'left' | 'right' | null>(null);
@@ -40,7 +42,54 @@ export const SwipeMatchModal: React.FC<SwipeMatchModalProps> = ({
   const currentItem = items[currentIndex % Math.max(1, items.length)];
 
   if (!currentItem) {
-    return null;
+    return (
+      <AnimatePresence>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ scale: 0.92, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.92, opacity: 0 }}
+            className="w-full max-w-sm rounded-3xl bg-[#FFF9EB] border-4 border-[#D8C5A0] shadow-2xl overflow-hidden flex flex-col"
+          >
+            <div className="px-4 py-3 bg-[#F5E9CE] border-b-2 border-[#D8C5A0] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Flame className="w-5 h-5 text-[#FF7E67] fill-[#FF7E67]" />
+                <h3 className="font-game text-base font-bold text-[#4A3520]">
+                  Quick-Swap Match Deck
+                </h3>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-[#FFF9EB] border border-[#D8C5A0] flex items-center justify-center text-[#5C4328]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 text-center space-y-3">
+              <div className="text-4xl">🃏</div>
+              <h4 className="font-game text-base font-bold text-[#4A3520]">
+                No Nearby Items in the Deck Yet!
+              </h4>
+              <p className="text-xs font-bold text-[#7C6246]">
+                Be the first trader in your area to post an item for swap, or invite a neighbor to join the Plaza!
+              </p>
+              {onOpenUpload && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenUpload();
+                  }}
+                  className="w-full py-3 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-cozy-green"
+                >
+                  + Post Your First Item (+25 XP)
+                </button>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      </AnimatePresence>
+    );
   }
 
   // Check if any item in user's Pocket matches keywords in currentItem's wishlist_hint!
