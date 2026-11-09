@@ -576,28 +576,24 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
               </div>
             </div>
 
-            {/* Category Pills */}
+            {/* Category Dropdown Selector */}
             <div>
               <label className="block text-xs font-extrabold uppercase tracking-wider text-[#5C4328] mb-1">
                 🗂️ Category ({CATEGORIES.length} Categories)
               </label>
-              <div className="flex flex-wrap gap-1.5">
+              <select
+                value={category}
+                onChange={(e) =>
+                  setCategory(e.target.value as Exclude<ItemCategory, 'All'>)
+                }
+                className="w-full rounded-2xl bg-white border-2 border-[#D8C5A0] px-3.5 py-2.5 text-xs font-extrabold text-[#4A3520] focus:outline-none focus:border-[#4E9F6E] cursor-pointer"
+              >
                 {CATEGORIES.map((cat) => (
-                  <button
-                    type="button"
-                    key={cat}
-                    onClick={() => setCategory(cat)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all flex items-center gap-1 ${
-                      category === cat
-                        ? 'bg-[#5C4328] text-white border-[#4A3520]'
-                        : 'bg-white text-[#5C4328] border-[#D8C5A0]'
-                    }`}
-                  >
-                    <span>{CATEGORY_ICONS[cat]}</span>
-                    <span>{cat}</span>
-                  </button>
+                  <option key={cat} value={cat}>
+                    {CATEGORY_ICONS[cat]} {cat}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
 
             {/* Description & Wishlist */}

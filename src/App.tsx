@@ -29,6 +29,8 @@ import {
   Share2,
   Navigation,
   Flame,
+  ChevronDown,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   ALL_CATEGORIES,
@@ -123,7 +125,19 @@ export function App() {
 
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('pocketswap_user_v3');
-    return saved ? JSON.parse(saved) : INITIAL_CURRENT_USER;
+    if (saved) {
+      const parsed = JSON.parse(saved) as UserProfile;
+      // Ensure every visitor has a unique device user ID instead of sharing 'user-founder-01'
+      if (parsed && parsed.id && parsed.id !== 'user-founder-01') {
+        return parsed;
+      }
+    }
+    return INITIAL_CURRENT_USER;
+  });
+
+  const [deletedItemIds, setDeletedItemIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('pocketswap_deleted_items_v3');
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [profiles, setProfiles] = useState<UserProfile[]>(() => {
@@ -176,6 +190,10 @@ export function App() {
   const [sortMode, setSortMode] = useState<SortMode>('closest');
   const [searchInput, setSearchInput] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [categorySearchFilter, setCategorySearchFilter] = useState('');
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement | null>(null);
   const [radarRadiusKm, setRadarRadiusKm] = useState<number>(10);
   const [gpsStatus, setGpsStatus] = useState<
     'idle' | 'locating' | 'locked' | 'simulated'
@@ -262,6 +280,20 @@ export function App() {
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [selectedCategory, sortMode]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        filterDropdownRef.current &&
+        !filterDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsCategoryDropdownOpen(false);
+        setIsSortDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Persist to LocalStorage
   useEffect(() => {
@@ -486,17 +518,50 @@ export function App() {
       // 1. Check live Supabase Cloud State (item-media/cloud-db/state.json)
       const cloudState = await loadCloudStateFromSupabase();
       if (cloudState && Array.isArray(cloudState.items)) {
-        setItems(cloudState.items);
-        if (Array.isArray(cloudState.trades)) setTrades(cloudState.trades);
-        if (Array.isArray(cloudState.profiles) && cloudState.profiles.length > 0) {
-          setProfiles(cloudState.profiles);
+        const mergeList = <T extends { id: string }>(
+          localArr: T[],
+          cloudArr: T[],
+          ignoreIds: string[] = []
+        ): T[] => {
+          const ignoreSet = new Set(ignoreIds);
+          const map = new Map<string, T>();
+          for (const item of localArr) {
+            if (item?.id && !ignoreSet.has(item.id)) map.set(item.id, item);
+          }
+          for (const item of cloudArr) {
+            if (item?.id && !ignoreSet.has(item.id)) {
+              map.set(item.id, { ...(map.get(item.id) || {}), ...item });
+            }
+          }
+          return Array.from(map.values());
+        };
+
+        const mergedDeleted = Array.from(
+          new Set([...deletedItemIds, ...(cloudState.deletedItemIds || [])])
+        );
+        if (mergedDeleted.length !== deletedItemIds.length) {
+          setDeletedItemIds(mergedDeleted);
+          localStorage.setItem(
+            'pocketswap_deleted_items_v3',
+            JSON.stringify(mergedDeleted)
+          );
         }
-        if (Array.isArray(cloudState.reviews)) setReviews(cloudState.reviews);
+
+        setItems((prev) => mergeList(prev, cloudState.items, mergedDeleted));
+        if (Array.isArray(cloudState.trades)) {
+          setTrades((prev) => mergeList(prev, cloudState.trades));
+        }
+        if (Array.isArray(cloudState.profiles) && cloudState.profiles.length > 0) {
+          setProfiles((prev) => mergeList(prev, cloudState.profiles));
+        }
+        if (Array.isArray(cloudState.reviews)) {
+          setReviews((prev) => mergeList(prev, cloudState.reviews));
+        }
         if (Array.isArray(cloudState.wantedPosts)) {
-          setWantedPosts(cloudState.wantedPosts);
+          setWantedPosts((prev) => mergeList(prev, cloudState.wantedPosts!));
         }
         if (Array.isArray(cloudState.friends)) {
-          setFriends(cloudState.friends);
+          setFriends((prev) => mergeList(prev, cloudState.friends!));
         }
       } else {
         await saveCloudStateToSupabase({
@@ -506,6 +571,7 @@ export function App() {
           reviews,
           wantedPosts,
           friends,
+          deletedItemIds,
           updatedAt: new Date().toISOString(),
         });
       }
@@ -517,8 +583,20 @@ export function App() {
   useEffect(() => {
     syncWithSupabase();
 
+    // Poll every 12s & on window focus so multi-user listings, offers & chat sync live
+    const pollTimer = setInterval(() => {
+      syncWithSupabase();
+    }, 12000);
+    const handleFocus = () => syncWithSupabase();
+    window.addEventListener('focus', handleFocus);
+
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase) {
+      return () => {
+        clearInterval(pollTimer);
+        window.removeEventListener('focus', handleFocus);
+      };
+    }
 
     const channel = supabase
       .channel('pocketswap-realtime-feed')
@@ -539,6 +617,8 @@ export function App() {
       .subscribe();
 
     return () => {
+      clearInterval(pollTimer);
+      window.removeEventListener('focus', handleFocus);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -554,11 +634,21 @@ export function App() {
         reviews,
         wantedPosts,
         friends,
+        deletedItemIds,
         updatedAt: new Date().toISOString(),
       });
     }, 800);
     return () => clearTimeout(timer);
-  }, [items, trades, profiles, reviews, wantedPosts, friends, supabaseConnected]);
+  }, [
+    items,
+    trades,
+    profiles,
+    reviews,
+    wantedPosts,
+    friends,
+    deletedItemIds,
+    supabaseConnected,
+  ]);
 
   // Friend System Handlers
   const acceptedFriendIds = useMemo(
@@ -706,6 +796,11 @@ export function App() {
 
   const handleDeleteOwnItem = (itemId: string) => {
     setItems((prev) => prev.filter((i) => i.id !== itemId));
+    setDeletedItemIds((prev) => {
+      const next = Array.from(new Set([...prev, itemId]));
+      localStorage.setItem('pocketswap_deleted_items_v3', JSON.stringify(next));
+      return next;
+    });
     showToast('🗑️ Item removed from your Pocket Inventory.');
   };
 
@@ -2150,71 +2245,304 @@ export function App() {
                 </button>
               </div>
 
-              {/* Debounced Search Bar */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-[#8C6D46] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Search by item, brand, year (e.g., 1998, Nintendo)..."
-                  className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-[#FFFDF7] border-2 border-[#D8C5A0] text-xs font-bold text-[#4A3520] placeholder-[#A68E6E] focus:outline-none focus:border-[#4E9F6E]"
-                />
-              </div>
+              {/* Compact Search + Category Dropdown + Sort Dropdown Toolbar */}
+              <div
+                ref={filterDropdownRef}
+                className="space-y-2"
+              >
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                  {/* Search Bar */}
+                  <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
+                    <Search className="w-4 h-4 text-[#8C6D46] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Search item, brand, year (e.g. 1998, Nintendo)..."
+                      className="w-full pl-9 pr-8 py-2.5 rounded-2xl bg-[#FFFDF7] border-2 border-[#D8C5A0] text-xs font-bold text-[#4A3520] placeholder-[#A68E6E] focus:outline-none focus:border-[#4E9F6E]"
+                    />
+                    {searchInput && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchInput('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#F5E9CE] text-[#6E5031] text-[10px] font-extrabold flex items-center justify-center hover:bg-[#E8D5B0]"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
 
-              {/* Sort & Friends/Wishlist Filter Bar (Wrapped so all pills are visible) */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {(
-                  [
-                    { id: 'closest', label: '📍 Closest' },
-                    { id: 'matches', label: '🎯 Wants My Items' },
-                    {
-                      id: 'friends',
-                      label: `🤝 Friends' Items (${acceptedFriendIds.length})`,
-                    },
-                    { id: 'rarity', label: '👑 Highest Rarity' },
-                    { id: 'vintage', label: '📅 Oldest / Vintage' },
-                    {
-                      id: 'saved',
-                      label: `❤️ Saved (${likedItemIds.length})`,
-                    },
-                  ] as const
-                ).map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setSortMode(s.id)}
-                    className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold border transition-all ${
-                      sortMode === s.id
-                        ? 'bg-[#4E9F6E] text-white border-[#367A51] shadow-sm'
-                        : 'bg-[#FFF9EB] text-[#6E5031] border-[#D8C5A0] hover:bg-[#F5E9CE]'
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Category Filter Pills (Wrapped so all 13 categories are visible) */}
-              <div className="flex flex-wrap items-center gap-1.5 pb-1">
-                {CATEGORIES.map((category) => {
-                  const active = selectedCategory === category;
-                  return (
+                  {/* Category Dropdown Trigger + Popover */}
+                  <div className="relative flex-1 sm:flex-initial">
                     <button
-                      key={category}
                       type="button"
-                      onClick={() => setSelectedCategory(category)}
-                      className={`px-3 py-1.5 rounded-2xl font-game text-xs font-bold transition-all border-2 flex items-center gap-1.5 ${
-                        active
-                          ? 'bg-[#5C4328] text-[#FFF9EB] border-[#4A3520] shadow-sm -translate-y-0.5'
-                          : 'bg-[#FFFDF7] text-[#6E5031] border-[#D8C5A0] hover:bg-[#F5E9CE]'
+                      onClick={() => {
+                        setIsCategoryDropdownOpen((prev) => !prev);
+                        setIsSortDropdownOpen(false);
+                      }}
+                      className={`w-full sm:w-auto px-3.5 py-2.5 rounded-2xl font-game text-xs font-bold border-2 flex items-center justify-between gap-2 transition-all ${
+                        selectedCategory !== 'All'
+                          ? 'bg-[#5C4328] text-[#FFF9EB] border-[#4A3520] shadow-sm'
+                          : 'bg-[#FFFDF7] text-[#4A3520] border-[#D8C5A0] hover:bg-[#FFF9EB]'
                       }`}
                     >
-                      <span>{CATEGORY_ICONS[category]}</span>
-                      <span>{category}</span>
+                      <span className="flex items-center gap-1.5 truncate">
+                        <span>{CATEGORY_ICONS[selectedCategory]}</span>
+                        <span>
+                          {selectedCategory === 'All'
+                            ? `All Categories (${CATEGORIES.length - 1})`
+                            : selectedCategory}
+                        </span>
+                      </span>
+                      <ChevronDown
+                        className={`w-4 h-4 shrink-0 transition-transform ${
+                          isCategoryDropdownOpen ? 'rotate-180' : ''
+                        }`}
+                      />
                     </button>
-                  );
-                })}
+
+                    <AnimatePresence>
+                      {isCategoryDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                          transition={{ duration: 0.14 }}
+                          className="absolute left-0 sm:right-0 sm:left-auto mt-2 w-72 sm:w-80 rounded-3xl bg-[#FFF9EB] border-3 border-[#D8C5A0] shadow-2xl p-3 z-40 space-y-2.5"
+                        >
+                          <div className="flex items-center justify-between px-1">
+                            <span className="font-game text-xs font-bold text-[#4A3520]">
+                              🗂️ Browse by Category ({CATEGORIES.length - 1})
+                            </span>
+                            {selectedCategory !== 'All' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCategory('All');
+                                  setIsCategoryDropdownOpen(false);
+                                }}
+                                className="text-[10px] font-extrabold text-[#FF7E67] hover:underline"
+                              >
+                                Reset to All
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="relative">
+                            <Search className="w-3.5 h-3.5 text-[#8C6D46] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="text"
+                              value={categorySearchFilter}
+                              onChange={(e) =>
+                                setCategorySearchFilter(e.target.value)
+                              }
+                              placeholder="Quick filter categories..."
+                              className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white border border-[#D8C5A0] text-[11px] font-bold text-[#4A3520] focus:outline-none focus:border-[#4E9F6E]"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-1.5 max-h-64 overflow-y-auto pr-0.5">
+                            {CATEGORIES.filter((cat) =>
+                              cat
+                                .toLowerCase()
+                                .includes(categorySearchFilter.toLowerCase())
+                            ).map((category) => {
+                              const active = selectedCategory === category;
+                              const count =
+                                category === 'All'
+                                  ? items.filter(
+                                      (i) =>
+                                        i.owner_id !== currentUser.id &&
+                                        i.is_for_trade
+                                    ).length
+                                  : items.filter(
+                                      (i) =>
+                                        i.owner_id !== currentUser.id &&
+                                        i.is_for_trade &&
+                                        i.category === category
+                                    ).length;
+                              return (
+                                <button
+                                  key={category}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCategory(category);
+                                    setIsCategoryDropdownOpen(false);
+                                    setCategorySearchFilter('');
+                                  }}
+                                  className={`px-2.5 py-2 rounded-xl text-left text-[11px] font-extrabold border flex items-center justify-between gap-1.5 transition-all ${
+                                    active
+                                      ? 'bg-[#5C4328] text-[#FFF9EB] border-[#4A3520] shadow-sm'
+                                      : 'bg-[#FFFDF7] text-[#5C4328] border-[#D8C5A0] hover:bg-[#F5E9CE]'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-1.5 truncate">
+                                    <span>{CATEGORY_ICONS[category]}</span>
+                                    <span className="truncate">{category}</span>
+                                  </span>
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded-full text-[9px] font-extrabold shrink-0 ${
+                                      active
+                                        ? 'bg-white/20 text-white'
+                                        : 'bg-[#F5E9CE] text-[#7C6246]'
+                                    }`}
+                                  >
+                                    {count}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Sort & Filter Dropdown Trigger + Popover */}
+                  <div className="relative flex-1 sm:flex-initial">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSortDropdownOpen((prev) => !prev);
+                        setIsCategoryDropdownOpen(false);
+                      }}
+                      className={`w-full sm:w-auto px-3.5 py-2.5 rounded-2xl font-game text-xs font-bold border-2 flex items-center justify-between gap-2 transition-all ${
+                        sortMode !== 'closest'
+                          ? 'bg-[#4E9F6E] text-white border-[#367A51] shadow-sm'
+                          : 'bg-[#FFFDF7] text-[#4A3520] border-[#D8C5A0] hover:bg-[#FFF9EB]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 truncate">
+                        <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+                        <span>
+                          {
+                            {
+                              closest: '📍 Closest',
+                              matches: '🎯 Wants My Items',
+                              friends: `🤝 Friends (${acceptedFriendIds.length})`,
+                              rarity: '👑 Highest Rarity',
+                              vintage: '📅 Oldest / Vintage',
+                              saved: `❤️ Saved (${likedItemIds.length})`,
+                            }[sortMode]
+                          }
+                        </span>
+                      </span>
+                      <ChevronDown
+                        className={`w-4 h-4 shrink-0 transition-transform ${
+                          isSortDropdownOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+
+                    <AnimatePresence>
+                      {isSortDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                          transition={{ duration: 0.14 }}
+                          className="absolute right-0 mt-2 w-60 rounded-3xl bg-[#FFF9EB] border-3 border-[#D8C5A0] shadow-2xl p-2.5 z-40 space-y-1"
+                        >
+                          <div className="px-2 py-1 font-game text-xs font-bold text-[#4A3520]">
+                            🔃 Sort & Filter Feed
+                          </div>
+                          {(
+                            [
+                              { id: 'closest', label: '📍 Closest to Me' },
+                              { id: 'matches', label: '🎯 Wants My Items' },
+                              {
+                                id: 'friends',
+                                label: `🤝 Friends' Items (${acceptedFriendIds.length})`,
+                              },
+                              { id: 'rarity', label: '👑 Highest Rarity' },
+                              { id: 'vintage', label: '📅 Oldest / Vintage' },
+                              {
+                                id: 'saved',
+                                label: `❤️ Saved Wishlist (${likedItemIds.length})`,
+                              },
+                            ] as const
+                          ).map((s) => {
+                            const active = sortMode === s.id;
+                            return (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => {
+                                  setSortMode(s.id);
+                                  setIsSortDropdownOpen(false);
+                                }}
+                                className={`w-full px-3 py-2 rounded-xl text-left text-xs font-extrabold flex items-center justify-between transition-all ${
+                                  active
+                                    ? 'bg-[#4E9F6E] text-white shadow-sm'
+                                    : 'text-[#5C4328] hover:bg-[#F5E9CE]'
+                                }`}
+                              >
+                                <span>{s.label}</span>
+                                {active && <Check className="w-3.5 h-3.5" />}
+                              </button>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                {/* Compact Active Filter Chip Strip (only visible when filtering) */}
+                {(selectedCategory !== 'All' ||
+                  sortMode !== 'closest' ||
+                  debouncedQuery !== '' ||
+                  eventFilterActive) && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#8C6D46] mr-1">
+                      Active Filters:
+                    </span>
+                    {selectedCategory !== 'All' && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategory('All')}
+                        className="px-2.5 py-1 rounded-full bg-[#5C4328] text-[#FFF9EB] text-[11px] font-extrabold flex items-center gap-1"
+                      >
+                        <span>
+                          {CATEGORY_ICONS[selectedCategory]} {selectedCategory}
+                        </span>
+                        <span className="opacity-80">✕</span>
+                      </button>
+                    )}
+                    {sortMode !== 'closest' && (
+                      <button
+                        type="button"
+                        onClick={() => setSortMode('closest')}
+                        className="px-2.5 py-1 rounded-full bg-[#4E9F6E] text-white text-[11px] font-extrabold flex items-center gap-1"
+                      >
+                        <span>Sort: {sortMode}</span>
+                        <span className="opacity-80">✕</span>
+                      </button>
+                    )}
+                    {debouncedQuery !== '' && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchInput('')}
+                        className="px-2.5 py-1 rounded-full bg-[#F5E9CE] text-[#4A3520] border border-[#D8C5A0] text-[11px] font-extrabold flex items-center gap-1"
+                      >
+                        <span>"{searchInput}"</span>
+                        <span className="opacity-80">✕</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory('All');
+                        setSortMode('closest');
+                        setSearchInput('');
+                        setEventFilterActive(false);
+                      }}
+                      className="text-[11px] font-extrabold text-[#FF7E67] hover:underline ml-1"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Paginated Item Cards Feed or Founding Villager Empty State */}

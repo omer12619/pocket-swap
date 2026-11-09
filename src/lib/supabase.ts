@@ -68,6 +68,7 @@ export interface CloudAppState {
   reviews: KarmaReview[];
   wantedPosts?: WantedPost[];
   friends?: FriendConnection[];
+  deletedItemIds?: string[];
   updatedAt: string;
 }
 
@@ -232,24 +233,42 @@ export function calculateDistanceKm(
   return Math.round(R * c * 100) / 100;
 }
 
-export const INITIAL_CURRENT_USER: UserProfile = {
-  id: 'user-founder-01',
-  username: 'new_villager',
-  display_name: 'Cozy Trader',
-  avatar_emoji: '🦊',
-  title_badge: 'Founding Villager 🌱',
-  bio: 'New to PocketSwap! Ready to swap local items in my neighborhood.',
-  karma_score: 5.0,
-  karma_points: 100,
-  karma_reviews_count: 0,
-  completed_trades: 0,
-  level: 1,
-  xp: 0,
-  latitude: 32.0853,
-  longitude: 34.7818,
-  location_name: 'Local Neighborhood',
-  badges: ['🌱 Founding Villager'],
-};
+function getOrCreateDeviceUser(): UserProfile {
+  let uid = 'user-founder-01';
+  let suffix = '01';
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const existingUid = localStorage.getItem('pocketswap_device_uid');
+    if (existingUid) {
+      uid = existingUid;
+      suffix = existingUid.slice(-4);
+    } else {
+      const rand = Math.random().toString(36).slice(2, 8);
+      uid = `villager-${Date.now().toString(36)}-${rand}`;
+      suffix = rand.slice(0, 4);
+      localStorage.setItem('pocketswap_device_uid', uid);
+    }
+  }
+  return {
+    id: uid,
+    username: `villager_${suffix}`,
+    display_name: `Villager #${suffix.toUpperCase()}`,
+    avatar_emoji: '🦊',
+    title_badge: 'Founding Villager 🌱',
+    bio: 'New to PocketSwap! Ready to swap local items in my neighborhood.',
+    karma_score: 5.0,
+    karma_points: 100,
+    karma_reviews_count: 0,
+    completed_trades: 0,
+    level: 1,
+    xp: 0,
+    latitude: 32.0853,
+    longitude: 34.7818,
+    location_name: 'Local Neighborhood',
+    badges: ['🌱 Founding Villager'],
+  };
+}
+
+export const INITIAL_CURRENT_USER: UserProfile = getOrCreateDeviceUser();
 
 export const INITIAL_PROFILES: UserProfile[] = [INITIAL_CURRENT_USER];
 

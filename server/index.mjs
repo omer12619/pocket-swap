@@ -121,29 +121,78 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // 1c. POST /api/state — Save Shared Village Cloud State via Admin Client (Bypasses Storage RLS safely)
+  // 1c. POST /api/state — Smart Multi-User Merge of Shared Village Cloud State via Admin Client
   if (req.method === 'POST' && url.pathname === '/api/state') {
     const body = await parseBody(req);
     try {
-      const payload = JSON.stringify({
-        items: Array.isArray(body.items) ? body.items : [],
-        trades: Array.isArray(body.trades) ? body.trades : [],
-        profiles: Array.isArray(body.profiles) ? body.profiles : [],
-        reviews: Array.isArray(body.reviews) ? body.reviews : [],
-        wantedPosts: Array.isArray(body.wantedPosts) ? body.wantedPosts : [],
-        friends: Array.isArray(body.friends) ? body.friends : [],
+      let existing = {
+        items: [],
+        trades: [],
+        profiles: [],
+        reviews: [],
+        wantedPosts: [],
+        friends: [],
+        deletedItemIds: [],
+      };
+      try {
+        const { data: existingBlob } = await supabaseAdmin.storage
+          .from('item-media')
+          .download('cloud-db/state.json');
+        if (existingBlob) {
+          const parsed = JSON.parse(await existingBlob.text());
+          if (parsed && typeof parsed === 'object') {
+            existing = { ...existing, ...parsed };
+          }
+        }
+      } catch {
+        // First write or missing file
+      }
+
+      const deletedSet = new Set([
+        ...(Array.isArray(existing.deletedItemIds) ? existing.deletedItemIds : []),
+        ...(Array.isArray(body.deletedItemIds) ? body.deletedItemIds : []),
+      ]);
+
+      const mergeById = (oldList = [], newList = [], filterDeleted = false) => {
+        const map = new Map();
+        for (const entry of Array.isArray(oldList) ? oldList : []) {
+          if (entry && entry.id && (!filterDeleted || !deletedSet.has(entry.id))) {
+            map.set(entry.id, entry);
+          }
+        }
+        for (const entry of Array.isArray(newList) ? newList : []) {
+          if (entry && entry.id && (!filterDeleted || !deletedSet.has(entry.id))) {
+            map.set(entry.id, { ...(map.get(entry.id) || {}), ...entry });
+          }
+        }
+        return Array.from(map.values());
+      };
+
+      const mergedState = {
+        items: mergeById(existing.items, body.items, true),
+        trades: mergeById(existing.trades, body.trades, false),
+        profiles: mergeById(existing.profiles, body.profiles, false),
+        reviews: mergeById(existing.reviews, body.reviews, false),
+        wantedPosts: mergeById(existing.wantedPosts, body.wantedPosts, false),
+        friends: mergeById(existing.friends, body.friends, false),
+        deletedItemIds: Array.from(deletedSet).slice(-200),
         updatedAt: new Date().toISOString(),
-      });
+      };
+
       const { error } = await supabaseAdmin.storage
         .from('item-media')
-        .upload('cloud-db/state.json', Buffer.from(payload, 'utf-8'), {
-          contentType: 'application/json',
-          upsert: true,
-        });
+        .upload(
+          'cloud-db/state.json',
+          Buffer.from(JSON.stringify(mergedState), 'utf-8'),
+          {
+            contentType: 'application/json',
+            upsert: true,
+          }
+        );
       if (error) {
         return sendJson(res, 500, { error: error.message });
       }
-      return sendJson(res, 200, { ok: true });
+      return sendJson(res, 200, { ok: true, state: mergedState });
     } catch (err) {
       return sendJson(res, 500, { error: String(err) });
     }
