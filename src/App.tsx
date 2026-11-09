@@ -179,6 +179,19 @@ export function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [reportedItemIds, setReportedItemIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('pocketswap_reported_items');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [isAdminMode, setIsAdminMode] = useState<boolean>(() => {
+    return localStorage.getItem('pocketswap_admin_mode') === 'true';
+  });
+  const prevTradesCountRef = useRef<number>(trades.length);
+  const prevMessagesCountRef = useRef<number>(
+    trades.reduce((acc, t) => acc + (t.messages?.length || 0), 0)
+  );
+
   const [claimedQuestIds, setClaimedQuestIds] = useState<string[]>(() => {
     const saved = localStorage.getItem('pocketswap_claimed_quests');
     return saved ? JSON.parse(saved) : [];
@@ -330,6 +343,68 @@ export function App() {
       JSON.stringify(blockedUserIds)
     );
   }, [blockedUserIds]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      'pocketswap_reported_items',
+      JSON.stringify(reportedItemIds)
+    );
+  }, [reportedItemIds]);
+
+  // Live Unread Trade Offer & Chat Message Detector + Dynamic Browser Tab Title
+  useEffect(() => {
+    const incomingPending = trades.filter(
+      (t) =>
+        (t.receiver_id === currentUser.id && t.status === 'pending') ||
+        (t.status === 'countered' && t.last_actor_name !== currentUser.display_name)
+    ).length;
+
+    document.title =
+      incomingPending > 0
+        ? `(${incomingPending}) New Trade Activity! • PocketSwap`
+        : 'PocketSwap - Cozy Local Item Trade-Off Game';
+
+    const totalMsgs = trades.reduce(
+      (acc, t) => acc + (t.messages?.length || 0),
+      0
+    );
+
+    if (trades.length > prevTradesCountRef.current) {
+      const newest = trades[0];
+      if (newest && newest.receiver_id === currentUser.id) {
+        playCozySound('trade');
+        showToast(`🔔 New Trade Offer from ${newest.sender_name}!`);
+        if (browserNotifsEnabled && 'Notification' in window) {
+          try {
+            new Notification(`New Trade Offer from ${newest.sender_name} ⚔️`, {
+              body: newest.message || 'Tap to inspect their offered items!',
+            });
+          } catch {
+            // ignore
+          }
+        }
+      }
+    } else if (totalMsgs > prevMessagesCountRef.current) {
+      const latestWithPartnerMsg = trades.find(
+        (t) =>
+          (t.sender_id === currentUser.id || t.receiver_id === currentUser.id) &&
+          t.messages &&
+          t.messages.length > 0 &&
+          t.messages[t.messages.length - 1].sender_id !== currentUser.id
+      );
+      if (latestWithPartnerMsg) {
+        const lastMsg =
+          latestWithPartnerMsg.messages![
+            latestWithPartnerMsg.messages!.length - 1
+          ];
+        playCozySound('coins');
+        showToast(`💬 ${lastMsg.sender_name}: "${lastMsg.text.slice(0, 45)}"`);
+      }
+    }
+
+    prevTradesCountRef.current = trades.length;
+    prevMessagesCountRef.current = totalMsgs;
+  }, [trades, currentUser.id, currentUser.display_name, browserNotifsEnabled]);
 
   useEffect(() => {
     localStorage.setItem(
@@ -862,7 +937,9 @@ export function App() {
   };
 
   const handleReportItem = (reportedItem: TradeItem) => {
-    setItems((prev) => prev.filter((i) => i.id !== reportedItem.id));
+    setReportedItemIds((prev) =>
+      prev.includes(reportedItem.id) ? prev : [...prev, reportedItem.id]
+    );
     showToast(
       `🛡️ Reported "${reportedItem.title}" & hid it from your Plaza feed.`
     );
@@ -874,6 +951,23 @@ export function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ itemId: reportedItem.id }),
     }).catch(() => {});
+  };
+
+  const handleToggleAdminMode = () => {
+    if (isAdminMode) {
+      setIsAdminMode(false);
+      localStorage.setItem('pocketswap_admin_mode', 'false');
+      showToast('🛡️ Exited Founder Admin Mode.');
+      return;
+    }
+    const code = window.prompt('Enter Founder Admin PIN to unlock moderation controls:');
+    if (code === '2026' || code === 'pocketswap-admin') {
+      setIsAdminMode(true);
+      localStorage.setItem('pocketswap_admin_mode', 'true');
+      showToast('🛡️ Founder Admin Moderation Unlocked! You can now remove any listing.');
+    } else if (code !== null) {
+      showToast('⚠️ Invalid Founder Admin PIN.');
+    }
   };
 
   const handleBlockUser = (ownerId: string, ownerName: string) => {
@@ -895,7 +989,7 @@ export function App() {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setItems((prev) =>
-          prev.map((item, idx) => {
+          prev.map((item) => {
             if (item.owner_id === currentUser.id) {
               return {
                 ...item,
@@ -904,13 +998,7 @@ export function App() {
                 location_name: 'My Live GPS Pin',
               };
             }
-            const angle = (idx * Math.PI) / 2.5;
-            const offset = 0.004 + (idx % 3) * 0.003;
-            return {
-              ...item,
-              latitude: latitude + Math.sin(angle) * offset,
-              longitude: longitude + Math.cos(angle) * offset,
-            };
+            return item;
           })
         );
         setCurrentUser((prev) => ({
@@ -1092,7 +1180,8 @@ export function App() {
         (i) =>
           i.owner_id !== currentUser.id &&
           i.is_for_trade &&
-          !blockedUserIds.includes(i.owner_id)
+          !blockedUserIds.includes(i.owner_id) &&
+          !reportedItemIds.includes(i.id)
       )
       .filter((i) =>
         selectedCategory === 'All' ? true : i.category === selectedCategory
@@ -2116,6 +2205,30 @@ export function App() {
           {/* ========================================================= */}
           {activeTab === 'explore' && (
             <div className="space-y-3">
+              {(currentUser.display_name.startsWith('Villager #') ||
+                currentUser.display_name === 'Cozy Trader') && (
+                <div className="rounded-2xl bg-[#FFFDF7] border-2 border-[#4E9F6E] px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🪪</span>
+                    <div>
+                      <span className="font-game text-xs font-bold text-[#4A3520] block">
+                        Welcome! Set Your Villager Name, Avatar & Real City
+                      </span>
+                      <span className="text-[11px] font-bold text-[#7C6246]">
+                        You are browsing as {currentUser.display_name} ({currentUser.location_name})
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditProfileOpen(true)}
+                    className="px-3 py-1.5 rounded-xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-sm"
+                  >
+                    ✏️ Customize Passport
+                  </button>
+                </div>
+              )}
+
               <div className="rounded-3xl bg-gradient-to-r from-[#4E9F6E] to-[#3B8458] p-4 text-white shadow-cozy-green relative overflow-hidden">
                 <div
                   className={`relative z-10 flex gap-3 ${
@@ -3592,6 +3705,17 @@ export function App() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={handleToggleAdminMode}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold ${
+                      isAdminMode
+                        ? 'bg-[#C84B31] text-white border-[#A13720]'
+                        : 'bg-white text-[#5C4328] border-[#D8C5A0]'
+                    }`}
+                  >
+                    {isAdminMode ? '🛡️ Admin Active' : '🛡️ Admin Mode'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleCleanDemoData}
                     className="px-3 py-1.5 rounded-xl bg-[#FFF0EC] hover:bg-[#FFE0D6] border border-[#FF7E67] text-[#C84B31] text-xs font-extrabold"
                   >
@@ -3829,6 +3953,8 @@ export function App() {
           onBlockUser={handleBlockUser}
           onShareItem={(item) => setSharingItem(item)}
           onEditItem={(item) => setEditingItem(item)}
+          isAdminMode={isAdminMode}
+          onAdminDeleteItem={handleDeleteOwnItem}
         />
 
         <WantedBoardModal

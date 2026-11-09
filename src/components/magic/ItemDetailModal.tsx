@@ -28,6 +28,8 @@ interface ItemDetailModalProps {
   onBlockUser?: (ownerId: string, ownerName: string) => void;
   onShareItem?: (item: TradeItem) => void;
   onEditItem?: (item: TradeItem) => void;
+  isAdminMode?: boolean;
+  onAdminDeleteItem?: (itemId: string) => void;
 }
 
 export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
@@ -41,6 +43,8 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   onBlockUser,
   onShareItem,
   onEditItem,
+  isAdminMode,
+  onAdminDeleteItem,
 }) => {
   const [questionText, setQuestionText] = useState('');
   const [publicCommentText, setPublicCommentText] = useState('');
@@ -82,28 +86,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     setPublicCommentText('');
   };
 
-  const defaultComments = [
-    {
-      id: 'default-c1',
-      user_id: 'user-3',
-      user_name: 'Mochi Cat',
-      user_avatar: '🐱',
-      text: `Is everything tested and working smoothly on this ${item.year_made || 2023} ${item.brand || 'item'}?`,
-      created_at: '2h ago',
-    },
-    {
-      id: 'default-c2',
-      user_id: item.owner_id,
-      user_name: item.owner_name,
-      user_avatar: item.owner_avatar,
-      text: `Yes! Graded ${item.condition} and comes with ${item.accessories_included || 'all listed accessories'}. Happy to let you test it in person at meetup!`,
-      is_owner_reply: true,
-      created_at: '1h ago',
-    },
-  ];
-
-  const displayedComments =
-    item.comments && item.comments.length > 0 ? item.comments : defaultComments;
+  const displayedComments = item.comments || [];
 
   return (
     <AnimatePresence>
@@ -380,36 +363,42 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               </div>
 
               <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                {displayedComments.map((c) => (
-                  <div
-                    key={c.id}
-                    className={`p-2.5 rounded-xl border text-xs ${
-                      c.is_owner_reply
-                        ? 'bg-[#EBF7EE] border-[#8BD1A0]'
-                        : 'bg-[#FFF9EB] border-[#E6D5B5]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span>{c.user_avatar}</span>
-                        <span className="font-extrabold text-[#4A3520]">
-                          {c.user_name}
-                        </span>
-                        {c.is_owner_reply && (
-                          <span className="px-1.5 py-0.2 rounded bg-[#4E9F6E] text-white text-[9px] font-extrabold uppercase">
-                            Owner
+                {displayedComments.length === 0 ? (
+                  <p className="text-[11px] font-bold text-[#8C6D46] italic py-1">
+                    No public questions yet — ask {item.owner_name} about condition or accessories below!
+                  </p>
+                ) : (
+                  displayedComments.map((c) => (
+                    <div
+                      key={c.id}
+                      className={`p-2.5 rounded-xl border text-xs ${
+                        c.is_owner_reply
+                          ? 'bg-[#EBF7EE] border-[#8BD1A0]'
+                          : 'bg-[#FFF9EB] border-[#E6D5B5]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span>{c.user_avatar}</span>
+                          <span className="font-extrabold text-[#4A3520]">
+                            {c.user_name}
                           </span>
-                        )}
+                          {c.is_owner_reply && (
+                            <span className="px-1.5 py-0.2 rounded bg-[#4E9F6E] text-white text-[9px] font-extrabold uppercase">
+                              Owner
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-bold text-[#8C6D46]">
+                          {c.created_at}
+                        </span>
                       </div>
-                      <span className="text-[10px] font-bold text-[#8C6D46]">
-                        {c.created_at}
-                      </span>
+                      <p className="font-semibold text-[#5C4328] leading-snug">
+                        {c.text}
+                      </p>
                     </div>
-                    <p className="font-semibold text-[#5C4328] leading-snug">
-                      {c.text}
-                    </p>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
 
               {onAddPublicComment && (
@@ -505,32 +494,49 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               </button>
             )}
 
-            {/* App Store Guideline 1.2 Trust & Safety Bar (Report Item / Block User) */}
-            {!isOwnItem && (
+            {/* App Store Guideline 1.2 Trust & Safety Bar (Report Item / Block User / Admin Delete) */}
+            {(!isOwnItem || isAdminMode) && (
               <div className="pt-2 border-t border-dashed border-[#D8C5A0] flex items-center justify-between text-[11px] font-bold text-[#8C6D46]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onReportItem?.(item);
-                    onClose();
-                  }}
-                  className="flex items-center gap-1 hover:text-[#C84B31] transition-colors"
-                >
-                  <Flag className="w-3.5 h-3.5" />
-                  <span>Report Listing</span>
-                </button>
+                {!isOwnItem && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onReportItem?.(item);
+                      onClose();
+                    }}
+                    className="flex items-center gap-1 hover:text-[#C84B31] transition-colors"
+                  >
+                    <Flag className="w-3.5 h-3.5" />
+                    <span>Report Listing</span>
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    onBlockUser?.(item.owner_id, item.owner_name);
-                    onClose();
-                  }}
-                  className="flex items-center gap-1 hover:text-[#C84B31] transition-colors"
-                >
-                  <Ban className="w-3.5 h-3.5" />
-                  <span>Block {item.owner_name}</span>
-                </button>
+                {isAdminMode && onAdminDeleteItem && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAdminDeleteItem(item.id);
+                      onClose();
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-[#C84B31] text-white font-extrabold flex items-center gap-1"
+                  >
+                    <span>🛡️ Admin Remove Listing</span>
+                  </button>
+                )}
+
+                {!isOwnItem && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onBlockUser?.(item.owner_id, item.owner_name);
+                      onClose();
+                    }}
+                    className="flex items-center gap-1 hover:text-[#C84B31] transition-colors"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>Block {item.owner_name}</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
