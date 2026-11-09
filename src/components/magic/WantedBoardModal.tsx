@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Plus, ArrowLeftRight, MapPin, Search } from 'lucide-react';
-import { ItemCategory, UserProfile, WantedPost } from '../../types/game';
+import {
+  CATEGORY_ICONS,
+  ITEM_CATEGORIES,
+  ItemCategory,
+  UserProfile,
+  WantedPost,
+} from '../../types/game';
 
 interface WantedBoardModalProps {
   isOpen: boolean;
@@ -16,14 +22,7 @@ interface WantedBoardModalProps {
   onFulfillWanted: (post: WantedPost) => void;
 }
 
-const WANTED_CATEGORIES: Exclude<ItemCategory, 'All'>[] = [
-  'Gaming',
-  'Gadgets',
-  'Collectibles',
-  'Fashion',
-  'Books & Art',
-  'Home & Cozy',
-];
+const WANTED_CATEGORIES: Exclude<ItemCategory, 'All'>[] = ITEM_CATEGORIES;
 
 export const WantedBoardModal: React.FC<WantedBoardModalProps> = ({
   isOpen,
@@ -144,7 +143,7 @@ export const WantedBoardModal: React.FC<WantedBoardModalProps> = ({
                     >
                       {WANTED_CATEGORIES.map((c) => (
                         <option key={c} value={c}>
-                          {c}
+                          {CATEGORY_ICONS[c]} {c}
                         </option>
                       ))}
                     </select>
@@ -202,7 +201,7 @@ export const WantedBoardModal: React.FC<WantedBoardModalProps> = ({
                         </div>
                       </div>
                       <span className="px-2.5 py-0.5 rounded-full bg-[#FFF6E0] border border-[#EED9B3] text-[#8C5800] text-[10px] font-extrabold">
-                        {post.category}
+                        {CATEGORY_ICONS[post.category]} {post.category}
                       </span>
                     </div>
 

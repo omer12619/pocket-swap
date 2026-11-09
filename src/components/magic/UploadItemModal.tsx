@@ -14,9 +14,12 @@ import {
   Plus,
 } from 'lucide-react';
 import {
+  CATEGORY_ICONS,
+  ITEM_CATEGORIES,
   ItemCategory,
   ItemCondition,
   ItemRarity,
+  MAX_POCKET_ITEMS,
   TradeItem,
   UserProfile,
 } from '../../types/game';
@@ -31,20 +34,14 @@ import {
 interface UploadItemModalProps {
   isOpen: boolean;
   currentUser: UserProfile;
+  currentPocketCount?: number;
   editingItem?: TradeItem | null;
   onClose: () => void;
   onAddItem: (newItem: TradeItem) => void;
   onUpdateItem?: (updatedItem: TradeItem) => void;
 }
 
-const CATEGORIES: Exclude<ItemCategory, 'All'>[] = [
-  'Gaming',
-  'Gadgets',
-  'Collectibles',
-  'Fashion',
-  'Books & Art',
-  'Home & Cozy',
-];
+const CATEGORIES: Exclude<ItemCategory, 'All'>[] = ITEM_CATEGORIES;
 
 const RARITIES: ItemRarity[] = ['Common', 'Rare', 'Epic', 'Legendary'];
 const CONDITIONS: ItemCondition[] = [
@@ -99,11 +96,13 @@ const QUICK_PRESETS = [
 export const UploadItemModal: React.FC<UploadItemModalProps> = ({
   isOpen,
   currentUser,
+  currentPocketCount = 0,
   editingItem = null,
   onClose,
   onAddItem,
   onUpdateItem,
 }) => {
+  const isPocketFull = !editingItem && currentPocketCount >= MAX_POCKET_ITEMS;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<Exclude<ItemCategory, 'All'>>('Gaming');
@@ -300,6 +299,13 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
       return;
     }
 
+    if (isPocketFull) {
+      setMediaError(
+        `Your Pocket Inventory is at the ${MAX_POCKET_ITEMS}-item limit (${currentPocketCount}/${MAX_POCKET_ITEMS})! Complete a swap or remove an item first.`
+      );
+      return;
+    }
+
     const newItem: TradeItem = {
       id: `item-${Date.now()}`,
       owner_id: currentUser.id,
@@ -371,7 +377,7 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
                 <p className="text-[11px] font-bold text-[#7C6246]">
                   {editingItem
                     ? 'Update details, condition, wishlist or add extra angle photos'
-                    : 'Include Year, Condition & Details • Earn +25 XP!'}
+                    : `Pocket Capacity: ${currentPocketCount} / ${MAX_POCKET_ITEMS} Items • Earn +25 XP!`}
                 </p>
               </div>
             </div>
@@ -687,7 +693,7 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
             {/* Category Pills */}
             <div>
               <label className="block text-xs font-extrabold uppercase tracking-wider text-[#5C4328] mb-1">
-                🗂️ Category
+                🗂️ Category ({CATEGORIES.length} Categories)
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {CATEGORIES.map((cat) => (
@@ -695,13 +701,14 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
                     type="button"
                     key={cat}
                     onClick={() => setCategory(cat)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all flex items-center gap-1 ${
                       category === cat
                         ? 'bg-[#5C4328] text-white border-[#4A3520]'
                         : 'bg-white text-[#5C4328] border-[#D8C5A0]'
                     }`}
                   >
-                    {cat}
+                    <span>{CATEGORY_ICONS[cat]}</span>
+                    <span>{cat}</span>
                   </button>
                 ))}
               </div>

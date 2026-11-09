@@ -31,11 +31,14 @@ import {
   Flame,
 } from 'lucide-react';
 import {
+  ALL_CATEGORIES,
+  CATEGORY_ICONS,
   FriendConnection,
   ItemCategory,
   ItemComment,
   ItemRarity,
   KarmaReview,
+  MAX_POCKET_ITEMS,
   TradeChatMessage,
   TradeItem,
   TradeOffer,
@@ -91,15 +94,7 @@ type SortMode =
   | 'vintage'
   | 'saved';
 
-const CATEGORIES: ItemCategory[] = [
-  'All',
-  'Gaming',
-  'Gadgets',
-  'Collectibles',
-  'Fashion',
-  'Books & Art',
-  'Home & Cozy',
-];
+const CATEGORIES: ItemCategory[] = ALL_CATEGORIES;
 
 const RARITY_WEIGHT: Record<ItemRarity, number> = {
   Legendary: 4,
@@ -172,8 +167,14 @@ export function App() {
     const saved = localStorage.getItem('pocketswap_items_v2');
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length >= INITIAL_ITEMS.length) {
-        return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const existingIds = new Set(parsed.map((i: TradeItem) => i.id));
+        const missingDefaults = INITIAL_ITEMS.filter(
+          (i) => !existingIds.has(i.id)
+        );
+        return missingDefaults.length > 0
+          ? [...parsed, ...missingDefaults]
+          : parsed;
       }
     }
     return INITIAL_ITEMS;
@@ -521,12 +522,18 @@ export function App() {
       // 1. Check live Supabase Cloud State (item-media/cloud-db/state.json)
       const cloudState = await loadCloudStateFromSupabase();
       if (cloudState && cloudState.items.length > 0) {
-        setItems(cloudState.items);
+        const cloudIds = new Set(cloudState.items.map((i) => i.id));
+        const missingDefaults = INITIAL_ITEMS.filter((i) => !cloudIds.has(i.id));
+        const mergedCloudItems =
+          missingDefaults.length > 0
+            ? [...cloudState.items, ...missingDefaults]
+            : cloudState.items;
+        setItems(mergedCloudItems);
         if (cloudState.trades?.length) setTrades(cloudState.trades);
         if (cloudState.profiles?.length) setProfiles(cloudState.profiles);
         if (cloudState.reviews?.length) setReviews(cloudState.reviews);
         showToast(
-          `☁️ Live synced ${cloudState.items.length} items & ${
+          `☁️ Live synced ${mergedCloudItems.length} items & ${
             cloudState.trades?.length || 0
           } trades from Supabase!`
         );
@@ -1181,6 +1188,13 @@ export function App() {
   };
 
   const handleAddItem = async (newItem: TradeItem) => {
+    if (myInventory.length >= MAX_POCKET_ITEMS) {
+      showToast(
+        `🎒 Your Pocket is full (${MAX_POCKET_ITEMS}/${MAX_POCKET_ITEMS} items)! Complete a swap or remove an item first.`
+      );
+      return;
+    }
+
     let finalMediaUrl = newItem.media_url;
     if (newItem.media_url.startsWith('data:')) {
       const uploadedUrl = await uploadItemMediaToSupabase(
@@ -2063,7 +2077,7 @@ export function App() {
                         id: 'pocket',
                         label: 'My Pocket Inventory',
                         icon: Backpack,
-                        badge: `${myInventory.length}/12`,
+                        badge: `${myInventory.length}/${MAX_POCKET_ITEMS}`,
                       },
                       {
                         id: 'trades',
@@ -2348,7 +2362,7 @@ export function App() {
                 ))}
               </div>
 
-              {/* Category Filter Pills (Wrapped so all categories are visible) */}
+              {/* Category Filter Pills (Wrapped so all 13 categories are visible) */}
               <div className="flex flex-wrap items-center gap-1.5 pb-1">
                 {CATEGORIES.map((category) => {
                   const active = selectedCategory === category;
@@ -2357,13 +2371,14 @@ export function App() {
                       key={category}
                       type="button"
                       onClick={() => setSelectedCategory(category)}
-                      className={`px-3 py-1.5 rounded-2xl font-game text-xs font-bold transition-all border-2 ${
+                      className={`px-3 py-1.5 rounded-2xl font-game text-xs font-bold transition-all border-2 flex items-center gap-1.5 ${
                         active
                           ? 'bg-[#5C4328] text-[#FFF9EB] border-[#4A3520] shadow-sm -translate-y-0.5'
                           : 'bg-[#FFFDF7] text-[#6E5031] border-[#D8C5A0] hover:bg-[#F5E9CE]'
                       }`}
                     >
-                      {category}
+                      <span>{CATEGORY_ICONS[category]}</span>
+                      <span>{category}</span>
                     </button>
                   );
                 })}
@@ -2444,26 +2459,48 @@ export function App() {
           {/* ========================================================= */}
           {activeTab === 'pocket' && (
             <div className="space-y-4">
-              <div className="rounded-3xl bg-[#FFFDF7] border-[3px] border-[#D8C5A0] p-4 shadow-cozy flex items-center justify-between">
-                <div>
-                  <h2 className="font-game text-lg font-bold text-[#4A3520] flex items-center gap-2">
-                    <span>🎒 My Pocket Inventory</span>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs bg-[#F5E9CE] text-[#6E5031]">
-                      {myInventory.length} / 12 Slots
+              <div className="rounded-3xl bg-[#FFFDF7] border-[3px] border-[#D8C5A0] p-4 shadow-cozy space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h2 className="font-game text-lg font-bold text-[#4A3520] flex items-center gap-2 flex-wrap">
+                      <span>🎒 My Pocket Inventory</span>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs bg-[#F5E9CE] text-[#6E5031]">
+                        {myInventory.length} / {MAX_POCKET_ITEMS} Items
+                      </span>
+                    </h2>
+                    <p className="text-xs font-bold text-[#7C6246] mt-0.5">
+                      Each trader can hold up to {MAX_POCKET_ITEMS} items. Tap any slot to toggle "Up for Trade"!
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={myInventory.length >= MAX_POCKET_ITEMS}
+                    onClick={() => setIsUploadOpen(true)}
+                    className={`px-3.5 py-2.5 rounded-2xl font-game text-xs font-bold flex items-center gap-1 shrink-0 ${
+                      myInventory.length >= MAX_POCKET_ITEMS
+                        ? 'bg-[#D8C5A0] text-[#7C6246] cursor-not-allowed'
+                        : 'bg-[#4E9F6E] text-white shadow-cozy-green'
+                    }`}
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>
+                      {myInventory.length >= MAX_POCKET_ITEMS
+                        ? 'Pocket Full'
+                        : 'Add Item'}
                     </span>
-                  </h2>
-                  <p className="text-xs font-bold text-[#7C6246] mt-0.5">
-                    Tap any slot to toggle "Up for Trade" or inspect/remove items.
-                  </p>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsUploadOpen(true)}
-                  className="px-3.5 py-2.5 rounded-2xl bg-[#4E9F6E] text-white font-game text-xs font-bold shadow-cozy-green flex items-center gap-1"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Item</span>
-                </button>
+                <div className="w-full h-2.5 rounded-full bg-[#EFE2C6] overflow-hidden border border-[#D8C5A0]">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#4E9F6E] to-[#F6B93B] rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (myInventory.length / MAX_POCKET_ITEMS) * 100
+                      )}%`,
+                    }}
+                  />
+                </div>
               </div>
 
               {/* 📊 Pocket Valuation & Demand Analytics Strip */}
@@ -2514,17 +2551,21 @@ export function App() {
 
               <div className="rounded-3xl bg-[#F5E9CE] border-3 border-[#D8C5A0] p-3">
                 <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#6E5031] mb-2 flex items-center justify-between px-1">
-                  <span>✨ Quick Equipment Slots</span>
+                  <span>
+                    ✨ Quick Equipment Slots ({myInventory.length}/{MAX_POCKET_ITEMS})
+                  </span>
                   <span>
                     {myInventory.filter((i) => i.is_for_trade).length} Active for Trade
                   </span>
                 </div>
                 <div
                   className={`grid gap-2 ${
-                    phoneFrameMode ? 'grid-cols-4' : 'grid-cols-4 md:grid-cols-8'
+                    phoneFrameMode
+                      ? 'grid-cols-5'
+                      : 'grid-cols-5 sm:grid-cols-10'
                   }`}
                 >
-                  {Array.from({ length: 8 }).map((_, slotIdx) => {
+                  {Array.from({ length: MAX_POCKET_ITEMS }).map((_, slotIdx) => {
                     const slotItem = myInventory[slotIdx];
                     if (!slotItem) {
                       return (
@@ -2534,9 +2575,9 @@ export function App() {
                           onClick={() => setIsUploadOpen(true)}
                           className="aspect-square rounded-2xl bg-[#E8D8B9]/70 border-2 border-dashed border-[#C7B087] flex flex-col items-center justify-center text-[#8C6D46] hover:bg-[#FFF9EB] transition-colors"
                         >
-                          <Plus className="w-5 h-5 opacity-60" />
-                          <span className="text-[9px] font-extrabold mt-0.5">
-                            Empty
+                          <Plus className="w-4 h-4 opacity-60" />
+                          <span className="text-[8px] font-extrabold mt-0.5">
+                            #{slotIdx + 1}
                           </span>
                         </button>
                       );
@@ -3128,9 +3169,13 @@ export function App() {
               {/* If viewing a Friend's / Other Trader's Passport, show their Pocket Items up for trade! */}
               {displayedProfile.id !== currentUser.id && (
                 <div className="space-y-3">
-                  <h3 className="font-game text-base font-bold text-[#4A3520]">
-                    🎒 {displayedProfile.display_name}'s Items Up for Trade (
-                    {displayedProfileItems.length})
+                  <h3 className="font-game text-base font-bold text-[#4A3520] flex items-center justify-between">
+                    <span>
+                      🎒 {displayedProfile.display_name}'s Pocket Inventory
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs bg-[#F5E9CE] text-[#6E5031]">
+                      {displayedProfileItems.length} / {MAX_POCKET_ITEMS} Slots
+                    </span>
                   </h3>
                   {displayedProfileItems.map((item) => (
                     <MagicGameCard
@@ -3567,6 +3612,7 @@ export function App() {
         <UploadItemModal
           isOpen={isUploadOpen || Boolean(editingItem)}
           currentUser={currentUser}
+          currentPocketCount={myInventory.length}
           editingItem={editingItem}
           onClose={() => {
             setIsUploadOpen(false);

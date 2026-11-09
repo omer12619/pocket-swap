@@ -1,5 +1,7 @@
 export type ItemRarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
 
+export const MAX_POCKET_ITEMS = 20;
+
 export type ItemCategory =
   | 'All'
   | 'Gaming'
@@ -7,7 +9,46 @@ export type ItemCategory =
   | 'Collectibles'
   | 'Fashion'
   | 'Books & Art'
-  | 'Home & Cozy';
+  | 'Home & Cozy'
+  | 'Music & Audio'
+  | 'Sports & Outdoors'
+  | 'Toys & Board Games'
+  | 'Crafts & DIY'
+  | 'Baby & Kids'
+  | 'Tools & Garden';
+
+export const ITEM_CATEGORIES: Exclude<ItemCategory, 'All'>[] = [
+  'Gaming',
+  'Gadgets',
+  'Collectibles',
+  'Fashion',
+  'Books & Art',
+  'Home & Cozy',
+  'Music & Audio',
+  'Sports & Outdoors',
+  'Toys & Board Games',
+  'Crafts & DIY',
+  'Baby & Kids',
+  'Tools & Garden',
+];
+
+export const ALL_CATEGORIES: ItemCategory[] = ['All', ...ITEM_CATEGORIES];
+
+export const CATEGORY_ICONS: Record<ItemCategory, string> = {
+  All: '✨',
+  Gaming: '🎮',
+  Gadgets: '📱',
+  Collectibles: '🃏',
+  Fashion: '👟',
+  'Books & Art': '📚',
+  'Home & Cozy': '🪴',
+  'Music & Audio': '🎸',
+  'Sports & Outdoors': '🚲',
+  'Toys & Board Games': '🎲',
+  'Crafts & DIY': '🧶',
+  'Baby & Kids': '🧸',
+  'Tools & Garden': '🛠️',
+};
 
 export type ItemCondition =
   | 'Mint ✨'

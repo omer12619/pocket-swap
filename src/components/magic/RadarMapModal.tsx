@@ -12,7 +12,13 @@ import {
   Compass,
   LocateFixed,
 } from 'lucide-react';
-import { ItemCategory, TradeItem, UserProfile } from '../../types/game';
+import {
+  ALL_CATEGORIES,
+  CATEGORY_ICONS,
+  ItemCategory,
+  TradeItem,
+  UserProfile,
+} from '../../types/game';
 
 interface RadarMapViewProps {
   currentUser: UserProfile;
@@ -27,15 +33,7 @@ interface RadarMapViewProps {
   onInspectItem?: (item: TradeItem) => void;
 }
 
-const CATEGORIES: ItemCategory[] = [
-  'All',
-  'Gaming',
-  'Gadgets',
-  'Collectibles',
-  'Fashion',
-  'Books & Art',
-  'Home & Cozy',
-];
+const CATEGORIES: ItemCategory[] = ALL_CATEGORIES;
 
 type RadarQuickFilter = 'all' | 'friends' | 'high_rarity' | 'vintage';
 type MapDisplayMode = 'street' | 'cozy';
@@ -420,10 +418,10 @@ export const RadarMapView: React.FC<RadarMapViewProps> = ({
           </div>
         </div>
 
-        {/* Category Filter Pills on Radar (Wrapped so all 7 categories are visible) */}
+        {/* Category Filter Pills on Radar (Wrapped so all 13 categories are visible) */}
         <div className="space-y-1">
           <span className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8C6D46] px-0.5">
-            🏷️ Category
+            🏷️ Category ({CATEGORIES.length - 1} Categories)
           </span>
           <div className="flex flex-wrap items-center gap-1.5">
             {CATEGORIES.map((cat) => {
@@ -433,13 +431,14 @@ export const RadarMapView: React.FC<RadarMapViewProps> = ({
                   key={cat}
                   type="button"
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-2.5 py-1 rounded-xl font-game text-[11px] font-bold border transition-all ${
+                  className={`px-2.5 py-1 rounded-xl font-game text-[11px] font-bold border transition-all flex items-center gap-1 ${
                     active
                       ? 'bg-[#5C4328] text-[#FFF9EB] border-[#4A3520] shadow-sm'
                       : 'bg-white text-[#6E5031] border-[#D8C5A0] hover:bg-[#F5E9CE]'
                   }`}
                 >
-                  {cat}
+                  <span>{CATEGORY_ICONS[cat]}</span>
+                  <span>{cat}</span>
                 </button>
               );
             })}

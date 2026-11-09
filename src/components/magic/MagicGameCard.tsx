@@ -14,7 +14,7 @@ import {
   Share2,
   Pencil,
 } from 'lucide-react';
-import { ItemRarity, TradeItem } from '../../types/game';
+import { CATEGORY_ICONS, ItemRarity, TradeItem } from '../../types/game';
 
 interface MagicGameCardProps {
   item: TradeItem;
@@ -205,8 +205,9 @@ export const MagicGameCard: React.FC<MagicGameCardProps> = ({
         {/* Category + Brand Tag + Like Heart */}
         <div className="absolute bottom-2.5 inset-x-2.5 flex items-center justify-between">
           <div className="flex items-center gap-1">
-            <span className="px-2.5 py-1 rounded-xl bg-[#FFF9EB]/95 backdrop-blur-sm text-[#5C4328] text-[11px] font-extrabold shadow-sm">
-              {item.category}
+            <span className="px-2.5 py-1 rounded-xl bg-[#FFF9EB]/95 backdrop-blur-sm text-[#5C4328] text-[11px] font-extrabold shadow-sm flex items-center gap-1">
+              <span>{CATEGORY_ICONS[item.category]}</span>
+              <span>{item.category}</span>
             </span>
             {item.brand && (
               <span className="px-2 py-1 rounded-xl bg-black/65 backdrop-blur-sm text-white text-[10px] font-extrabold shadow-sm truncate max-w-[115px]">
