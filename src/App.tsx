@@ -164,20 +164,25 @@ export function App() {
   });
 
   const [items, setItems] = useState<TradeItem[]>(() => {
+    const isDemoCleared =
+      localStorage.getItem('pocketswap_demo_cleared') === 'true';
     const saved = localStorage.getItem('pocketswap_items_v2');
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const existingIds = new Set(parsed.map((i: TradeItem) => i.id));
-        const missingDefaults = INITIAL_ITEMS.filter(
-          (i) => !existingIds.has(i.id)
-        );
-        return missingDefaults.length > 0
-          ? [...parsed, ...missingDefaults]
-          : parsed;
+      if (Array.isArray(parsed)) {
+        if (isDemoCleared) return parsed;
+        if (parsed.length > 0) {
+          const existingIds = new Set(parsed.map((i: TradeItem) => i.id));
+          const missingDefaults = INITIAL_ITEMS.filter(
+            (i) => !existingIds.has(i.id)
+          );
+          return missingDefaults.length > 0
+            ? [...parsed, ...missingDefaults]
+            : parsed;
+        }
       }
     }
-    return INITIAL_ITEMS;
+    return isDemoCleared ? [] : INITIAL_ITEMS;
   });
 
   const [trades, setTrades] = useState<TradeOffer[]>(() => {
@@ -520,20 +525,32 @@ export function App() {
 
     try {
       // 1. Check live Supabase Cloud State (item-media/cloud-db/state.json)
+      const isDemoCleared =
+        localStorage.getItem('pocketswap_demo_cleared') === 'true';
       const cloudState = await loadCloudStateFromSupabase();
-      if (cloudState && cloudState.items.length > 0) {
-        const cloudIds = new Set(cloudState.items.map((i) => i.id));
-        const missingDefaults = INITIAL_ITEMS.filter((i) => !cloudIds.has(i.id));
-        const mergedCloudItems =
-          missingDefaults.length > 0
-            ? [...cloudState.items, ...missingDefaults]
-            : cloudState.items;
-        setItems(mergedCloudItems);
-        if (cloudState.trades?.length) setTrades(cloudState.trades);
+      if (cloudState && Array.isArray(cloudState.items)) {
+        if (isDemoCleared) {
+          const demoIds = new Set(INITIAL_ITEMS.map((i) => i.id));
+          const realItemsOnly = cloudState.items.filter(
+            (i) => !demoIds.has(i.id)
+          );
+          setItems(realItemsOnly);
+        } else if (cloudState.items.length > 0) {
+          const cloudIds = new Set(cloudState.items.map((i) => i.id));
+          const missingDefaults = INITIAL_ITEMS.filter(
+            (i) => !cloudIds.has(i.id)
+          );
+          const mergedCloudItems =
+            missingDefaults.length > 0
+              ? [...cloudState.items, ...missingDefaults]
+              : cloudState.items;
+          setItems(mergedCloudItems);
+        }
+        if (cloudState.trades) setTrades(cloudState.trades);
         if (cloudState.profiles?.length) setProfiles(cloudState.profiles);
-        if (cloudState.reviews?.length) setReviews(cloudState.reviews);
+        if (cloudState.reviews) setReviews(cloudState.reviews);
         showToast(
-          `☁️ Live synced ${mergedCloudItems.length} items & ${
+          `☁️ Live synced ${cloudState.items.length} items & ${
             cloudState.trades?.length || 0
           } trades from Supabase!`
         );
@@ -1172,6 +1189,61 @@ export function App() {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [activeTab, hasMorePages, isLoadingMore]);
+
+  const handleCleanDemoData = async () => {
+    const demoItemIds = new Set(INITIAL_ITEMS.map((i) => i.id));
+    const demoTradeIds = new Set(INITIAL_TRADES.map((t) => t.id));
+    const demoReviewIds = new Set(INITIAL_KARMA_REVIEWS.map((r) => r.id));
+    const demoWantedIds = new Set(INITIAL_WANTED_POSTS.map((w) => w.id));
+
+    localStorage.setItem('pocketswap_demo_cleared', 'true');
+    const cleanItems = items.filter((i) => !demoItemIds.has(i.id));
+    const cleanTrades = trades.filter((t) => !demoTradeIds.has(t.id));
+    const cleanReviews = reviews.filter((r) => !demoReviewIds.has(r.id));
+    const cleanWanted = wantedPosts.filter((w) => !demoWantedIds.has(w.id));
+
+    setItems(cleanItems);
+    setTrades(cleanTrades);
+    setReviews(cleanReviews);
+    setWantedPosts(cleanWanted);
+    setFriends([]);
+
+    await saveCloudStateToSupabase({
+      items: cleanItems,
+      trades: cleanTrades,
+      profiles,
+      reviews: cleanReviews,
+      updatedAt: new Date().toISOString(),
+    });
+
+    showToast(
+      '🧹 Cleaned all Demo NPC items, trades & reviews! Only real player items are now active.'
+    );
+  };
+
+  const handleRestoreDemoData = async () => {
+    localStorage.removeItem('pocketswap_demo_cleared');
+    const existingIds = new Set(items.map((i) => i.id));
+    const mergedItems = [
+      ...items,
+      ...INITIAL_ITEMS.filter((i) => !existingIds.has(i.id)),
+    ];
+    setItems(mergedItems);
+    if (trades.length === 0) setTrades(INITIAL_TRADES);
+    if (reviews.length === 0) setReviews(INITIAL_KARMA_REVIEWS);
+    if (wantedPosts.length === 0) setWantedPosts(INITIAL_WANTED_POSTS);
+    if (friends.length === 0) setFriends(INITIAL_FRIENDS);
+
+    await saveCloudStateToSupabase({
+      items: mergedItems,
+      trades: trades.length ? trades : INITIAL_TRADES,
+      profiles,
+      reviews: reviews.length ? reviews : INITIAL_KARMA_REVIEWS,
+      updatedAt: new Date().toISOString(),
+    });
+
+    showToast('🌱 Restored Demo Villagers & showcase items!');
+  };
 
   const handleSpawnCommunityWave = () => {
     const newBatch = generateCommunityWave(
@@ -2236,7 +2308,11 @@ export function App() {
               </div>
 
               {/* LIVE VILLAGE SWAP EVENT, WANTED BOARD (ISO) & DAILY STREAK STRIP */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div
+                className={`grid gap-2 ${
+                  phoneFrameMode ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-3'
+                }`}
+              >
                 <button
                   type="button"
                   onClick={() => {
@@ -3313,6 +3389,20 @@ export function App() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCleanDemoData}
+                    className="px-3 py-1.5 rounded-xl bg-[#FFF0EC] hover:bg-[#FFE0D6] border border-[#FF7E67] text-[#C84B31] text-xs font-extrabold"
+                  >
+                    🧹 Clean Demo Data
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRestoreDemoData}
+                    className="px-3 py-1.5 rounded-xl bg-[#EBF7EE] hover:bg-[#D7F0DF] border border-[#8BD1A0] text-[#2F7A4C] text-xs font-extrabold"
+                  >
+                    🌱 Restore Demo
+                  </button>
                   <button
                     type="button"
                     onClick={() => syncWithSupabase()}
