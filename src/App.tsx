@@ -531,6 +531,12 @@ export function App() {
     const params = new URLSearchParams(window.location.search);
     const sharedItemId = params.get('item');
     const sharedTraderId = params.get('trader');
+    const sharedCategory = params.get('category') as ItemCategory | null;
+
+    if (sharedCategory && CATEGORIES.includes(sharedCategory)) {
+      setSelectedCategory(sharedCategory);
+      setActiveTab('explore');
+    }
 
     if (sharedItemId) {
       const found = items.find((i) => i.id === sharedItemId);

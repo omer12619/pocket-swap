@@ -370,12 +370,157 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { ok: true, moderatedItemId: itemId });
   }
 
-  // 5. Serve Compiled Frontend App (dist/) from the Same Server in Production
+  // 4b. GET /sitemap.xml — Dynamic Google Search Sitemap (Categories + Active Items)
+  if (req.method === 'GET' && url.pathname === '/sitemap.xml') {
+    const baseUrl = 'https://pocket-swap.onrender.com';
+    const categories = [
+      'Gaming',
+      'Gadgets',
+      'Collectibles',
+      'Fashion',
+      'Books & Art',
+      'Home & Cozy',
+      'Music & Audio',
+      'Sports & Outdoors',
+      'Toys & Board Games',
+      'Crafts & DIY',
+      'Baby & Kids',
+      'Tools & Garden',
+    ];
+    let cloudItems = [];
+    try {
+      const { data } = await supabaseAdmin.storage
+        .from('item-media')
+        .download('cloud-db/state.json');
+      if (data) {
+        const parsed = JSON.parse(await data.text());
+        if (Array.isArray(parsed.items)) {
+          cloudItems = parsed.items.filter((i) => i && i.id && i.is_for_trade);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    const nowIso = new Date().toISOString();
+    const urls = [
+      `  <url><loc>${baseUrl}/</loc><lastmod>${nowIso}</lastmod><changefreq>hourly</changefreq><priority>1.0</priority></url>`,
+      ...categories.map(
+        (cat) =>
+          `  <url><loc>${baseUrl}/?category=${encodeURIComponent(
+            cat
+          )}</loc><lastmod>${nowIso}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`
+      ),
+      ...cloudItems.map(
+        (item) =>
+          `  <url><loc>${baseUrl}/?item=${encodeURIComponent(
+            item.id
+          )}</loc><lastmod>${nowIso}</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>`
+      ),
+    ];
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join(
+      '\n'
+    )}\n</urlset>`;
+    res.writeHead(200, {
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=600',
+    });
+    return res.end(xml);
+  }
+
+  // 5. Serve Compiled Frontend App (dist/) with Dynamic SSR OpenGraph/SEO Meta Injection
   const distDir = path.resolve(__dirname, '../dist');
   if (fs.existsSync(distDir)) {
     const safePath =
       url.pathname === '/' ? '/index.html' : decodeURIComponent(url.pathname);
     const filePath = path.join(distDir, safePath);
+
+    const serveIndexWithDynamicMeta = async (htmlFilePath) => {
+      let html = fs.readFileSync(htmlFilePath, 'utf-8');
+      const itemId = url.searchParams.get('item');
+      const categoryParam = url.searchParams.get('category');
+
+      const escapeHtml = (str = '') =>
+        String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+
+      if (itemId) {
+        try {
+          const { data } = await supabaseAdmin.storage
+            .from('item-media')
+            .download('cloud-db/state.json');
+          if (data) {
+            const parsed = JSON.parse(await data.text());
+            const item = (parsed.items || []).find((i) => i.id === itemId);
+            if (item) {
+              const title = escapeHtml(
+                `Swap for ${item.title} (${item.year_made || ''} ${
+                  item.condition || ''
+                }) in ${item.location_name || 'Local Plaza'} — PocketSwap`
+              );
+              const desc = escapeHtml(
+                `${item.description || item.title} • Wants: ${
+                  item.wishlist_hint || 'Open to local offers'
+                } • 0% Cash Local Swap on PocketSwap.`
+              );
+              const img = escapeHtml(
+                item.media_url && item.media_url.startsWith('http')
+                  ? item.media_url
+                  : 'https://pocket-swap.onrender.com/og-preview.png'
+              );
+              html = html
+                .replace(/<title>.*?<\/title>/s, `<title>${title}</title>`)
+                .replace(
+                  /<meta name="description" content=".*?" \/>/,
+                  `<meta name="description" content="${desc}" />`
+                )
+                .replace(
+                  /<meta property="og:title" content=".*?" \/>/,
+                  `<meta property="og:title" content="${title}" />`
+                )
+                .replace(
+                  /<meta property="og:description" content=".*?" \/>/,
+                  `<meta property="og:description" content="${desc}" />`
+                )
+                .replace(
+                  /<meta property="og:image" content=".*?" \/>/,
+                  `<meta property="og:image" content="${img}" />`
+                )
+                .replace(
+                  /<meta name="twitter:image" content=".*?" \/>/,
+                  `<meta name="twitter:image" content="${img}" />`
+                );
+            }
+          }
+        } catch {
+          // serve default meta
+        }
+      } else if (categoryParam) {
+        const cleanCat = escapeHtml(categoryParam);
+        const title = `Swap ${cleanCat} Locally (0% Cash Barter) — PocketSwap`;
+        const desc = `Browse and trade local ${cleanCat} items in your neighborhood with zero cash on PocketSwap.`;
+        html = html
+          .replace(/<title>.*?<\/title>/s, `<title>${title}</title>`)
+          .replace(
+            /<meta name="description" content=".*?" \/>/,
+            `<meta name="description" content="${desc}" />`
+          )
+          .replace(
+            /<meta property="og:title" content=".*?" \/>/,
+            `<meta property="og:title" content="${title}" />`
+          );
+      }
+
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      });
+      return res.end(html);
+    };
 
     if (
       filePath.startsWith(distDir) &&
@@ -383,21 +528,23 @@ const server = http.createServer(async (req, res) => {
       fs.statSync(filePath).isFile()
     ) {
       const ext = path.extname(filePath).toLowerCase();
+      if (ext === '.html') {
+        return await serveIndexWithDynamicMeta(filePath);
+      }
       const mimeTypes = {
         '.html': 'text/html; charset=utf-8',
         '.js': 'application/javascript; charset=utf-8',
         '.css': 'text/css; charset=utf-8',
         '.json': 'application/json; charset=utf-8',
+        '.txt': 'text/plain; charset=utf-8',
+        '.xml': 'application/xml; charset=utf-8',
         '.svg': 'image/svg+xml',
         '.png': 'image/png',
         '.webp': 'image/webp',
       };
       res.writeHead(200, {
         'Content-Type': mimeTypes[ext] || 'application/octet-stream',
-        'Cache-Control':
-          ext === '.html'
-            ? 'no-cache, no-store, must-revalidate'
-            : 'public, max-age=31536000, immutable',
+        'Cache-Control': 'public, max-age=31536000, immutable',
       });
       return fs.createReadStream(filePath).pipe(res);
     }
@@ -405,11 +552,7 @@ const server = http.createServer(async (req, res) => {
     // SPA Fallback to dist/index.html
     const indexHtml = path.join(distDir, 'index.html');
     if (fs.existsSync(indexHtml)) {
-      res.writeHead(200, {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-      });
-      return fs.createReadStream(indexHtml).pipe(res);
+      return await serveIndexWithDynamicMeta(indexHtml);
     }
   }
 
