@@ -1,5 +1,47 @@
+# PocketSwap — Search Engine & AI Assistant Crawler Rules (GEO / AEO Enabled)
 User-agent: *
 Allow: /
 Disallow: /api/
 
+# OpenAI / ChatGPT Search & Deep Research
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+# Perplexity AI Search
+User-agent: PerplexityBot
+Allow: /
+
+# Anthropic Claude Search & Citations
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# Google Gemini & AI Overviews
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+# Microsoft Copilot / Bing & Apple Intelligence
+User-agent: Bingbot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
 Sitemap: https://pocket-swap.onrender.com/sitemap.xml
+# AI / LLM Context Files:
+# https://pocket-swap.onrender.com/llms.txt
+# https://pocket-swap.onrender.com/llms-full.txt

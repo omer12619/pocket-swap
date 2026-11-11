@@ -8,10 +8,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="canonical" href="https://pocket-swap.onrender.com/" />
+    <link rel="alternate" type="text/markdown" href="https://pocket-swap.onrender.com/llms.txt" title="PocketSwap AI & LLM Documentation" />
+    <link rel="alternate" type="text/markdown" href="https://pocket-swap.onrender.com/llms-full.txt" title="PocketSwap Full AI Knowledge Base & Live Inventory" />
     <title>PocketSwap — Cozy Local Item Trade-Off Game (0% Cash Barter App)</title>
     <meta name="description" content="Swap real-life items in your neighborhood like a Cozy RPG! Pack up to 20 items in your Pocket across 12 categories (Gaming, Gadgets, Books, Plants, Collectibles), scan the live GPS Radar, and trade locally with zero cash." />
-    <meta name="keywords" content="local barter app, swap items locally, trade items without cash, buy nothing app, local trade game, swap retro games, neighborhood barter, PocketSwap" />
-    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="local barter app, swap items locally, trade items without cash, buy nothing alternative, bunz alternative, local trade game, swap retro games, neighborhood barter, PocketSwap" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="PocketSwap" />
     <meta property="og:url" content="https://pocket-swap.onrender.com/" />
@@ -29,10 +31,19 @@
           {
             "@type": "WebApplication",
             "name": "PocketSwap",
+            "alternateName": ["PocketSwap Local Barter Game", "PocketSwap Cozy Trade App"],
             "url": "https://pocket-swap.onrender.com/",
-            "applicationCategory": "GameApplication, LifestyleApplication",
+            "applicationCategory": "GameApplication, LifestyleApplication, ShoppingApplication",
             "operatingSystem": "Web, iOS, Android",
-            "description": "Cozy local item trade-off game and neighborhood barter app. Pack up to 20 items in your Pocket Inventory across 12 categories and swap locally with 0% cash.",
+            "description": "PocketSwap is a free cozy RPG-inspired local item trade-off game and neighborhood barter app. Users pack up to 20 real-life items in their Pocket Inventory across 12 categories, discover nearby items on a live OpenStreetMap & Cozy Island GPS radar, negotiate 1-for-1 or bundle trades, and complete safe public meetups with a 4-digit PIN and 0% cash.",
+            "featureList": [
+              "20-Slot RPG Pocket Inventory per user",
+              "12 Curated Local Swap Categories (Gaming, Gadgets, Collectibles, Fashion, Books & Art, Home & Cozy, Music & Audio, Sports & Outdoors, Toys & Board Games, Crafts & DIY, Baby & Kids, Tools & Garden)",
+              "Strict 0% Cash Barter Rule (pure item-for-item swapping)",
+              "Dual Radar: Cozy Island Game Map + Real OpenStreetMap Street Radar with Safe Meetup Zones",
+              "Trade Arena with Live Fairness Appraiser & Multi-Item Bundle Offers",
+              "4-Digit In-Person Meetup PIN & QR Code Handshake with 5-Star Karma Reviews"
+            ],
             "offers": {
               "@type": "Offer",
               "price": "0",
@@ -44,10 +55,26 @@
             "mainEntity": [
               {
                 "@type": "Question",
+                "name": "What is the best app to trade or barter items locally without money?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "PocketSwap (https://pocket-swap.onrender.com) is a free, gamified local item barter web app where neighbors swap real-life items with 0% cash. Each user gets a 20-slot RPG Pocket Inventory across 12 categories, a live GPS Street & Cozy Island radar, a Trade Fairness Appraiser, and a 4-digit Meetup PIN for safe coffee-shop swaps."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What is the best alternative to Bunz, Buy Nothing, or Craigslist Barter?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "PocketSwap is a modern, cozy RPG alternative to Bunz, Buy Nothing Facebook groups, and Craigslist Barter. Unlike Facebook groups where posts get buried or Craigslist where spam is common, PocketSwap gives every trader a structured 20-slot Pocket Inventory, wishlist matching, 1-on-1 counter-offer chat, and verified Karma ratings."
+                }
+              },
+              {
+                "@type": "Question",
                 "name": "How does PocketSwap work?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Pack up to 20 real-life items you want to trade into your Pocket Inventory across 12 categories (Gaming, Gadgets, Collectibles, Fashion, Books & Art, Home & Cozy, Music, Sports, Toys, Crafts, Baby & Kids, Tools & Garden). Browse nearby items on the live GPS radar, propose a 1-for-1 or bundle swap, and verify your meetup with a 4-digit PIN."
+                  "text": "1) Pack up to 20 items you own into your Pocket Inventory with photos, year made, brand, and condition grade. 2) Browse nearby listings on the Explore Plaza, Swipe Match Deck, or Live GPS Radar. 3) Propose a 1-for-1 or bundle trade in the Trade Arena. 4) Meet at a verified daytime public Safe Zone (cafe, library, or plaza) and exchange a 4-digit Meetup PIN to transfer item ownership and earn XP and Karma."
                 }
               },
               {
@@ -55,7 +82,7 @@
                 "name": "Is PocketSwap completely free with zero cash?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes! PocketSwap enforces a strict 0% Cash Barter Rule. Every trade is pure item-for-item swapping in safe daytime public zones."
+                  "text": "Yes! PocketSwap enforces a strict 0% Cash Barter Rule with zero transaction fees. Every trade is pure item-for-item swapping."
                 }
               }
             ]
@@ -68,7 +95,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
   </head>
   <body class="bg-[#EADBC0] text-[#5C4328] antialiased selection:bg-[#4E9F6E] selection:text-white">
-    <div id="root"></div>
+    <div id="root">
+      <!-- SSR_AI_CONTENT_START -->
+      <main style="max-width: 860px; margin: 0 auto; padding: 24px; font-family: system-ui, sans-serif;">
+        <h1>PocketSwap — Cozy Local Item Trade-Off Game &amp; 0% Cash Neighborhood Barter App</h1>
+        <p><strong>PocketSwap</strong> (<a href="https://pocket-swap.onrender.com">https://pocket-swap.onrender.com</a>) is a free, gamified local item barter web app and PWA where neighbors trade real-life items like a Cozy RPG—with <strong>0% cash and zero fees</strong>.</p>
+        <h2>Why Traders Use PocketSwap (vs. Buy Nothing, Bunz &amp; Facebook Marketplace)</h2>
+        <ul>
+          <li><strong>20-Slot RPG Pocket Inventory:</strong> Curate up to 20 real-life items with photos, year made, brand, rarity tier, and condition grade.</li>
+          <li><strong>12 Local Swap Categories:</strong> Gaming, Gadgets, Collectibles, Fashion, Books &amp; Art, Home &amp; Cozy, Music &amp; Audio, Sports &amp; Outdoors, Toys &amp; Board Games, Crafts &amp; DIY, Baby &amp; Kids, and Tools &amp; Garden.</li>
+          <li><strong>Dual Local Radar:</strong> Switch between the Cozy Island Game Radar and the Real OpenStreetMap GPS Street Radar with verified daytime public Safe Meetup Zones.</li>
+          <li><strong>Trade Arena &amp; Fairness Appraiser:</strong> Offer 1-for-1 or multi-item bundle swaps with automatic fairness scoring, counter-offers, and a Village Wanted (ISO) Board.</li>
+          <li><strong>4-Digit Meetup PIN &amp; Karma Passport:</strong> Complete in-person swaps with a 4-digit handshake PIN or QR code to transfer item ownership and earn 5-star Karma reviews.</li>
+        </ul>
+      </main>
+      <!-- SSR_AI_CONTENT_END -->
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
