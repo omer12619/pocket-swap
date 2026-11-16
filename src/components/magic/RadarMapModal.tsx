@@ -367,82 +367,55 @@ export const RadarMapView: React.FC<RadarMapViewProps> = ({
           </button>
         </div>
 
-        {/* Radar Search Bar */}
-        <div className="relative">
-          <Search className="w-4 h-4 text-[#8C6D46] absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={radarSearch}
-            onChange={(e) => setRadarSearch(e.target.value)}
-            placeholder="Search radar pins (Camera, Nintendo, 1998, Milo)..."
-            className="w-full pl-9 pr-8 py-2 rounded-2xl bg-[#FFF9EB] border-2 border-[#D8C5A0] text-xs font-bold text-[#4A3520] placeholder-[#A68E6E] focus:outline-none focus:border-[#4E9F6E]"
-          />
-          {radarSearch && (
-            <button
-              type="button"
-              onClick={() => setRadarSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#E8D8B9] text-[#5C4328] flex items-center justify-center"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-
-        {/* Quick Filter Pills (Wrapped so all options are visible without clipping) */}
-        <div className="space-y-1">
-          <span className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8C6D46] px-0.5">
-            ⚡ Filter Pins
-          </span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {(
-              [
-                { id: 'all', label: '🗺️ All Pins' },
-                { id: 'friends', label: '🤝 Friends Only' },
-                { id: 'high_rarity', label: '👑 Epic & Legendary' },
-                { id: 'vintage', label: '📅 Vintage (<2015)' },
-              ] as const
-            ).map((f) => (
+        {/* Compact Single-Row Radar Search + Category Dropdown + Pin Filter Dropdown */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+          <div className="relative flex-1 min-w-[180px] w-full sm:w-auto">
+            <Search className="w-4 h-4 text-[#8C6D46] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={radarSearch}
+              onChange={(e) => setRadarSearch(e.target.value)}
+              placeholder="Search radar pins (Camera, Nintendo, 1998)..."
+              className="w-full pl-9 pr-8 py-2 rounded-2xl bg-[#FFF9EB] border-2 border-[#D8C5A0] text-xs font-bold text-[#4A3520] placeholder-[#A68E6E] focus:outline-none focus:border-[#4E9F6E]"
+            />
+            {radarSearch && (
               <button
-                key={f.id}
                 type="button"
-                onClick={() => setQuickFilter(f.id)}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold border transition-all ${
-                  quickFilter === f.id
-                    ? 'bg-[#4E9F6E] text-white border-[#367A51] shadow-sm'
-                    : 'bg-[#FFF9EB] text-[#6E5031] border-[#D8C5A0] hover:bg-[#F5E9CE]'
-                }`}
+                onClick={() => setRadarSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#E8D8B9] text-[#5C4328] flex items-center justify-center"
               >
-                {f.label}
+                <X className="w-3 h-3" />
               </button>
-            ))}
+            )}
           </div>
-        </div>
 
-        {/* Category Filter Pills on Radar (Wrapped so all 13 categories are visible) */}
-        <div className="space-y-1">
-          <span className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8C6D46] px-0.5">
-            🏷️ Category ({CATEGORIES.length - 1} Categories)
-          </span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {CATEGORIES.map((cat) => {
-              const active = selectedCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-2.5 py-1 rounded-xl font-game text-[11px] font-bold border transition-all flex items-center gap-1 ${
-                    active
-                      ? 'bg-[#5C4328] text-[#FFF9EB] border-[#4A3520] shadow-sm'
-                      : 'bg-white text-[#6E5031] border-[#D8C5A0] hover:bg-[#F5E9CE]'
-                  }`}
-                >
-                  <span>{CATEGORY_ICONS[cat]}</span>
-                  <span>{cat}</span>
-                </button>
-              );
-            })}
-          </div>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value as ItemCategory)}
+            className="flex-1 sm:flex-initial rounded-2xl bg-[#FFF9EB] border-2 border-[#D8C5A0] px-3 py-2 font-game text-xs font-bold text-[#4A3520] focus:outline-none focus:border-[#4E9F6E] cursor-pointer"
+          >
+            {CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {CATEGORY_ICONS[cat]}{' '}
+                {cat === 'All' ? `All Categories (${CATEGORIES.length - 1})` : cat}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={quickFilter}
+            onChange={(e) =>
+              setQuickFilter(
+                e.target.value as 'all' | 'friends' | 'high_rarity' | 'vintage'
+              )
+            }
+            className="flex-1 sm:flex-initial rounded-2xl bg-[#FFF9EB] border-2 border-[#D8C5A0] px-3 py-2 font-game text-xs font-bold text-[#4A3520] focus:outline-none focus:border-[#4E9F6E] cursor-pointer"
+          >
+            <option value="all">🗺️ All Pins</option>
+            <option value="friends">🤝 Friends Only</option>
+            <option value="high_rarity">👑 Epic &amp; Legendary</option>
+            <option value="vintage">📅 Vintage (&lt;2015)</option>
+          </select>
         </div>
 
         {/* Distance Radius Slider */}

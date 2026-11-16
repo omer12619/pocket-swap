@@ -2357,7 +2357,7 @@ export function App() {
 
           {/* MAIN SCROLLABLE VIEWPORT */}
           <main
-            className={`flex-1 min-h-0 min-w-0 w-full overflow-y-auto px-3.5 pt-3 space-y-3.5 ${
+            className={`flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden px-3.5 pt-3 space-y-3.5 ${
               phoneFrameMode ? 'pb-24' : 'pb-24 lg:pb-10 lg:px-6 lg:pt-5'
             }`}
           >
@@ -2416,18 +2416,26 @@ export function App() {
                   >
                     <button
                       type="button"
-                      onClick={() => setIsUploadOpen(true)}
+                      onClick={() =>
+                        phoneFrameMode
+                          ? setIsUploadOpen(true)
+                          : handleCopyReferralLink()
+                      }
                       className="px-3.5 py-2 rounded-2xl bg-[#F6B93B] hover:bg-[#E7A92B] text-[#4A3520] font-game text-xs font-bold shadow-cozy-gold active:translate-y-0.5 whitespace-nowrap text-center"
                     >
-                      + Post Item
+                      {phoneFrameMode ? '+ Post Item' : '🎁 Invite Neighbor (+50 XP)'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsSwipeDeckOpen(true)}
+                      onClick={() =>
+                        phoneFrameMode
+                          ? setIsSwipeDeckOpen(true)
+                          : setIsFlyerModalOpen(true)
+                      }
                       className="px-3.5 py-2 rounded-2xl bg-[#FF7E67] hover:bg-[#EE6C55] text-white font-game text-xs font-bold shadow-sm active:translate-y-0.5 flex items-center justify-center gap-1 whitespace-nowrap"
                     >
                       <Zap className="w-3.5 h-3.5 shrink-0" />
-                      <span>Swipe Deck</span>
+                      <span>{phoneFrameMode ? 'Swipe Deck' : '🖨️ Cafe QR Poster'}</span>
                     </button>
                   </div>
                 </div>
@@ -2582,7 +2590,7 @@ export function App() {
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: 6, scale: 0.97 }}
                           transition={{ duration: 0.14 }}
-                          className="absolute left-0 sm:right-0 sm:left-auto mt-2 w-72 sm:w-80 rounded-3xl bg-[#FFF9EB] border-3 border-[#D8C5A0] shadow-2xl p-3 z-40 space-y-2.5"
+                          className="absolute left-0 sm:right-0 sm:left-auto mt-2 w-80 sm:w-[430px] rounded-3xl bg-[#FFF9EB] border-3 border-[#D8C5A0] shadow-2xl p-3.5 z-40 space-y-2.5"
                         >
                           <div className="flex items-center justify-between px-1">
                             <span className="font-game text-xs font-bold text-[#4A3520]">
@@ -2615,7 +2623,7 @@ export function App() {
                             />
                           </div>
 
-                          <div className="grid grid-cols-2 gap-1.5 max-h-64 overflow-y-auto pr-0.5">
+                          <div className="grid grid-cols-2 gap-1.5 max-h-[420px] overflow-y-auto pr-0.5">
                             {CATEGORIES.filter((cat) =>
                               cat
                                 .toLowerCase()
@@ -3126,18 +3134,24 @@ export function App() {
               </div>
 
               {myInventory.length === 0 ? (
-                <div className="rounded-3xl bg-[#FFFDF7] border-[3px] border-dashed border-[#D8C5A0] p-6 text-center space-y-3 shadow-sm">
-                  <div className="text-4xl">🎒</div>
-                  <h3 className="font-game text-base font-bold text-[#4A3520]">
-                    Your 20-Slot Pocket Inventory is Empty!
-                  </h3>
-                  <p className="text-xs font-bold text-[#7C6246] max-w-md mx-auto">
-                    Snap a photo of a game, gadget, book, plant cutting, or craft item you’d love to trade locally to fill Slot #1 and earn +25 XP!
-                  </p>
+                <div className="rounded-3xl bg-[#FFFDF7] border-[3px] border-dashed border-[#D8C5A0] p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+                  <div className="flex items-start gap-3 text-left">
+                    <div className="w-12 h-12 rounded-2xl bg-[#F5E9CE] border border-[#D8C5A0] flex items-center justify-center text-2xl shrink-0">
+                      🎒
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-game text-sm sm:text-base font-bold text-[#4A3520]">
+                        Fill Slot #1 in Your 20-Slot Pocket (+25 XP)
+                      </h3>
+                      <p className="text-xs font-bold text-[#7C6246]">
+                        Great first listings: 🎮 Old Switch/PS5 Game • 🪴 Houseplant Cutting • 📚 Read Book/Manga • 📱 Desk Gadget
+                      </p>
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setIsUploadOpen(true)}
-                    className="px-5 py-2.5 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-cozy-green"
+                    className="w-full sm:w-auto shrink-0 px-5 py-2.5 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-cozy-green"
                   >
                     + Add Your First Item (+25 XP)
                   </button>
@@ -3226,29 +3240,64 @@ export function App() {
                   return t.status === 'completed';
                 return true;
               }).length === 0 ? (
-                <div className="rounded-3xl bg-[#FFFDF7] border-[3px] border-dashed border-[#D8C5A0] p-6 text-center space-y-3 shadow-sm">
-                  <div className="text-4xl">⚔️</div>
-                  <h3 className="font-game text-base font-bold text-[#4A3520]">
-                    No Trade Offers Yet
-                  </h3>
-                  <p className="text-xs font-bold text-[#7C6246] max-w-md mx-auto">
-                    Browse the Trade Plaza and tap "Offer Trade" on any item, or post items to your Pocket so nearby villagers can send you offers!
-                  </p>
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('explore')}
-                      className="px-4 py-2.5 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-cozy-green"
-                    >
-                      🧭 Explore Trade Plaza
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsUploadOpen(true)}
-                      className="px-4 py-2.5 rounded-2xl bg-[#F5E9CE] hover:bg-[#E8D5B0] text-[#5C4328] font-game text-xs font-bold"
-                    >
-                      + Post Item to Pocket
-                    </button>
+                <div className="space-y-3.5">
+                  <div className="rounded-3xl bg-[#FFFDF7] border-[3px] border-dashed border-[#D8C5A0] p-6 text-center space-y-3 shadow-sm">
+                    <div className="text-4xl">⚔️</div>
+                    <h3 className="font-game text-base font-bold text-[#4A3520]">
+                      No Trade Offers Yet
+                    </h3>
+                    <p className="text-xs font-bold text-[#7C6246] max-w-md mx-auto">
+                      Browse the Trade Plaza and tap "Offer Trade" on any item, or post items to your Pocket so nearby villagers can send you offers!
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('explore')}
+                        className="px-4 py-2.5 rounded-2xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-cozy-green"
+                      >
+                        🧭 Explore Trade Plaza
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsUploadOpen(true)}
+                        className="px-4 py-2.5 rounded-2xl bg-[#F5E9CE] hover:bg-[#E8D5B0] text-[#5C4328] font-game text-xs font-bold"
+                      >
+                        + Post Item to Pocket
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3-Step Visual Local Barter Walkthrough */}
+                  <div className="rounded-3xl bg-[#FFFDF7] border-2 border-[#D8C5A0] p-4 space-y-3 shadow-sm">
+                    <span className="font-game text-xs font-bold text-[#4A3520] block">
+                      🛡️ How 0% Cash Local Swapping Works
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="p-3 rounded-2xl bg-[#FFF9EB] border border-[#E6D5B5] space-y-1">
+                        <span className="font-game text-xs font-bold text-[#4E9F6E] block">
+                          1. Propose 1–3 Items ⚖️
+                        </span>
+                        <p className="text-[11px] font-bold text-[#7C6246]">
+                          Pick 1 to 3 items from your 20-slot Pocket in the Trade Arena. The Fairness Scale scores the match automatically!
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-[#FFF9EB] border border-[#E6D5B5] space-y-1">
+                        <span className="font-game text-xs font-bold text-[#FF7E67] block">
+                          2. Chat &amp; Pick a Safe Zone ☕
+                        </span>
+                        <p className="text-[11px] font-bold text-[#7C6246]">
+                          Use 1-on-1 Trade Chat to send counter-offers, share extra photos, and pick a verified daytime cafe or library.
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-[#FFF9EB] border border-[#E6D5B5] space-y-1">
+                        <span className="font-game text-xs font-bold text-[#C88719] block">
+                          3. Verify 4-Digit Meetup PIN 🤝
+                        </span>
+                        <p className="text-[11px] font-bold text-[#7C6246]">
+                          Inspect the items in person and enter the 4-digit Meetup PIN (or scan QR) to swap item ownership and earn +100 XP!
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -3766,7 +3815,15 @@ export function App() {
                 </div>
 
                 <div className="space-y-2">
-                  {[...profiles]
+                  {[
+                    currentUser,
+                    ...profiles.filter(
+                      (p) =>
+                        p.id !== currentUser.id &&
+                        p.id !== 'user-founder-01' &&
+                        p.display_name !== 'Cozy Trader'
+                    ),
+                  ]
                     .sort((a, b) => b.karma_points - a.karma_points)
                     .map((trader, idx) => {
                       const isMe = trader.id === currentUser.id;
