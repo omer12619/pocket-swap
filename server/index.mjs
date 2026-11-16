@@ -370,6 +370,98 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { ok: true, moderatedItemId: itemId });
   }
 
+  // 4a. POST /api/notifications/alert — Offline Trade Offer, Chat & Founder Webhook/Email Alerts
+  if (req.method === 'POST' && url.pathname === '/api/notifications/alert') {
+    const body = await parseBody(req);
+    const {
+      type = 'trade_activity',
+      recipientId,
+      recipientName,
+      senderName,
+      itemTitle,
+      message,
+    } = body;
+
+    let recipientEmail = null;
+    try {
+      if (recipientId) {
+        const { data } = await supabaseAdmin.storage
+          .from('item-media')
+          .download('cloud-db/state.json');
+        if (data) {
+          const parsed = JSON.parse(await data.text());
+          const foundProfile = (parsed.profiles || []).find(
+            (p) => p.id === recipientId
+          );
+          if (foundProfile && foundProfile.email) {
+            recipientEmail = foundProfile.email;
+          }
+        }
+      }
+
+      // 1. Optional Founder Discord / Slack / Telegram Webhook Alert
+      const webhookUrl = process.env.FOUNDER_WEBHOOK_URL;
+      if (webhookUrl) {
+        const summaryText = `🌿 **[PocketSwap ${type.toUpperCase()}]** ${
+          senderName || 'A Villager'
+        } → ${recipientName || 'Plaza'}: ${itemTitle ? `"${itemTitle}"` : ''} ${
+          message ? `— "${message}"` : ''
+        }`;
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: summaryText,
+            text: summaryText,
+          }),
+        }).catch(() => {});
+      }
+
+      // 2. Optional Transactional Email Alert via Resend API (if RESEND_API_KEY is set)
+      const resendKey = process.env.RESEND_API_KEY;
+      if (resendKey && recipientEmail) {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${resendKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from:
+              process.env.NOTIFY_FROM_EMAIL ||
+              'PocketSwap Village <alerts@pocket-swap.onrender.com>',
+            to: [recipientEmail],
+            subject: `⚔️ New Trade Activity from ${
+              senderName || 'a Neighbor'
+            } on PocketSwap!`,
+            html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:20px;background:#FFF9EB;border:3px solid #D8C5A0;border-radius:20px;color:#4A3520;">
+              <h2 style="margin-top:0;">🌿 New Activity in Your PocketSwap Plaza!</h2>
+              <p><strong>${senderName || 'A fellow trader'}</strong> sent you a ${type.replace(
+              '_',
+              ' '
+            )}${itemTitle ? ` regarding <strong>${itemTitle}</strong>` : ''}.</p>
+              ${
+                message
+                  ? `<blockquote style="background:#FFFDF7;padding:12px;border-left:4px solid #4E9F6E;border-radius:8px;">"${message}"</blockquote>`
+                  : ''
+              }
+              <p><a href="https://pocket-swap.onrender.com/?tab=trades" style="display:inline-block;padding:12px 20px;background:#4E9F6E;color:#fff;text-decoration:none;font-weight:bold;border-radius:12px;">Open Active Trades &amp; Chat →</a></p>
+              <p style="font-size:12px;color:#7C6246;">0% Cash • Daytime Public Safe-Zone Meetups</p>
+            </div>`,
+          }),
+        }).catch(() => {});
+      }
+    } catch {
+      // Non-blocking notification dispatch
+    }
+
+    return sendJson(res, 200, {
+      ok: true,
+      dispatched: true,
+      emailed: Boolean(recipientEmail && process.env.RESEND_API_KEY),
+    });
+  }
+
   // 4b. GET /sitemap.xml — Dynamic Google Search Sitemap (Categories + Active Items)
   if (req.method === 'GET' && url.pathname === '/sitemap.xml') {
     const baseUrl = 'https://pocket-swap.onrender.com';
@@ -699,4 +791,11 @@ server.listen(PORT, () => {
   console.log(
     `🛡️ PocketSwap Backend API Server running at http://localhost:${PORT} (Connected to ${SUPABASE_URL})`
   );
+
+  // Automatic 12-minute self-keep-alive ping in production so Render stays warm 24/7
+  const publicUrl =
+    process.env.RENDER_EXTERNAL_URL || 'https://pocket-swap.onrender.com';
+  setInterval(() => {
+    fetch(`${publicUrl}/api/health`).catch(() => {});
+  }, 12 * 60 * 1000);
 });

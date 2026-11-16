@@ -80,6 +80,8 @@ import { AuthPassportModal } from './components/magic/AuthPassportModal';
 import { ActivityFeedModal } from './components/magic/ActivityFeedModal';
 import { ShareQrModal } from './components/magic/ShareQrModal';
 import { WantedBoardModal } from './components/magic/WantedBoardModal';
+import { PrintableFlyerModal } from './components/magic/PrintableFlyerModal';
+import { SeoCategoryFooter } from './components/magic/SeoCategoryFooter';
 import {
   isSoundEnabled,
   playCozySound,
@@ -266,6 +268,7 @@ export function App() {
   const [editingItem, setEditingItem] = useState<TradeItem | null>(null);
   const [sharingItem, setSharingItem] = useState<TradeItem | null>(null);
   const [sharingProfile, setSharingProfile] = useState<UserProfile | null>(null);
+  const [isFlyerModalOpen, setIsFlyerModalOpen] = useState<boolean>(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
   const [browserNotifsEnabled, setBrowserNotifsEnabled] = useState<boolean>(
     () =>
@@ -532,10 +535,69 @@ export function App() {
     const sharedItemId = params.get('item');
     const sharedTraderId = params.get('trader');
     const sharedCategory = params.get('category') as ItemCategory | null;
+    const sharedTab = params.get('tab') as ActiveTab | null;
+    const refUsername = params.get('ref');
+
+    if (
+      sharedTab &&
+      ['explore', 'radar', 'pocket', 'trades', 'passport'].includes(sharedTab)
+    ) {
+      setActiveTab(sharedTab);
+    }
 
     if (sharedCategory && CATEGORIES.includes(sharedCategory)) {
       setSelectedCategory(sharedCategory);
       setActiveTab('explore');
+    }
+
+    if (
+      refUsername &&
+      refUsername.toLowerCase() !== currentUser.username.toLowerCase() &&
+      !localStorage.getItem(`pocketswap_ref_joined_${refUsername.toLowerCase()}`)
+    ) {
+      localStorage.setItem(
+        `pocketswap_ref_joined_${refUsername.toLowerCase()}`,
+        'true'
+      );
+      const inviterProfile = profiles.find(
+        (p) => p.username.toLowerCase() === refUsername.toLowerCase()
+      );
+      if (inviterProfile) {
+        setFriends((prev) => {
+          if (prev.some((f) => f.friend_id === inviterProfile.id)) return prev;
+          return [
+            {
+              id: `friend-ref-${Date.now()}`,
+              friend_id: inviterProfile.id,
+              friend_username: inviterProfile.username,
+              friend_name: inviterProfile.display_name,
+              friend_avatar: inviterProfile.avatar_emoji,
+              friend_title: inviterProfile.title_badge,
+              friend_level: inviterProfile.level,
+              friend_karma: inviterProfile.karma_score,
+              friend_location: inviterProfile.location_name,
+              status: 'friends',
+              online_status: 'Online Now 🟢',
+              mutual_trades: 0,
+              buddy_note: 'Invited you to the neighborhood Plaza!',
+              created_at: 'Just now',
+            },
+            ...prev,
+          ];
+        });
+      }
+      setCurrentUser((prev) => ({
+        ...prev,
+        xp: prev.xp + 50,
+        karma_points: prev.karma_points + 20,
+        badges: prev.badges.includes('👑 Town Founder')
+          ? prev.badges
+          : ['👑 Town Founder', ...prev.badges],
+      }));
+      confetti({ particleCount: 75, spread: 70, origin: { y: 0.6 } });
+      showToast(
+        `🎁 Welcome! Joined via @${refUsername}'s invite (+50 XP & Town Founder Badge!)`
+      );
     }
 
     if (sharedItemId) {
@@ -553,6 +615,48 @@ export function App() {
       }
     }
   }, [items, profiles]);
+
+  const dispatchServerAlert = (payload: {
+    type: string;
+    recipientId?: string;
+    recipientName?: string;
+    senderName?: string;
+    itemTitle?: string;
+    message?: string;
+  }) => {
+    const apiBase =
+      import.meta.env.VITE_API_BASE_URL ||
+      (import.meta.env.DEV ? 'http://localhost:3001' : '');
+    fetch(`${apiBase}/api/notifications/alert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  };
+
+  const handleCopyReferralLink = () => {
+    const url = `${window.location.origin}/?ref=${encodeURIComponent(
+      currentUser.username
+    )}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    if (!localStorage.getItem('pocketswap_ref_share_bonus')) {
+      localStorage.setItem('pocketswap_ref_share_bonus', 'true');
+      setCurrentUser((prev) => ({
+        ...prev,
+        xp: prev.xp + 50,
+        karma_points: prev.karma_points + 15,
+        badges: prev.badges.includes('👑 Town Founder')
+          ? prev.badges
+          : ['👑 Town Founder', ...prev.badges],
+      }));
+      confetti({ particleCount: 65, spread: 65, origin: { y: 0.65 } });
+      showToast(
+        '🎁 Copied your Neighbor Invite Link! (+50 XP & 👑 Town Founder Badge unlocked!)'
+      );
+    } else {
+      showToast('🔗 Copied your Neighbor Invite Link to clipboard!');
+    }
+  };
 
   const handleInstallPwa = async () => {
     if (!deferredInstallPrompt) {
@@ -1409,6 +1513,15 @@ export function App() {
     confetti({ particleCount: 70, spread: 70, origin: { y: 0.6 } });
     showToast(`⚔️ Trade Offer sent to ${targetItem.owner_name}!`);
 
+    dispatchServerAlert({
+      type: 'new_trade_offer',
+      recipientId: targetItem.owner_id,
+      recipientName: targetItem.owner_name,
+      senderName: currentUser.display_name,
+      itemTitle: targetItem.title,
+      message,
+    });
+
     const supabase = getSupabaseClient();
     if (supabase) {
       supabase
@@ -1466,6 +1579,25 @@ export function App() {
           : t
       )
     );
+
+    const targetTrade = trades.find((t) => t.id === tradeId);
+    if (targetTrade) {
+      const recipientId =
+        targetTrade.sender_id === currentUser.id
+          ? targetTrade.receiver_id
+          : targetTrade.sender_id;
+      const recipientName =
+        targetTrade.sender_id === currentUser.id
+          ? targetTrade.receiver_name
+          : targetTrade.sender_name;
+      dispatchServerAlert({
+        type: 'chat_reply',
+        recipientId,
+        recipientName,
+        senderName: currentUser.display_name,
+        message: text,
+      });
+    }
 
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -2716,6 +2848,13 @@ export function App() {
                     >
                       📌 Pin an ISO Wish Note
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyReferralLink}
+                      className="px-4 py-2.5 rounded-2xl bg-[#5C4328] hover:bg-[#4A3520] text-white font-game text-xs font-bold"
+                    >
+                      🎁 Invite a Neighbor (+50 XP)
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -2770,6 +2909,15 @@ export function App() {
                   </div>
                 </>
               )}
+
+              {/* Collapsible SEO Category Guide, Referral Bar & Printable Cafe QR Poster Trigger */}
+              <SeoCategoryFooter
+                currentUser={currentUser}
+                selectedCategory={selectedCategory}
+                onSelectCategory={(cat) => setSelectedCategory(cat)}
+                onOpenFlyerModal={() => setIsFlyerModalOpen(true)}
+                onCopyReferralLink={handleCopyReferralLink}
+              />
             </div>
           )}
 
@@ -3902,6 +4050,13 @@ export function App() {
             setSharingItem(null);
             setSharingProfile(null);
           }}
+        />
+
+        <PrintableFlyerModal
+          isOpen={isFlyerModalOpen}
+          currentUser={currentUser}
+          onClose={() => setIsFlyerModalOpen(false)}
+          onCopyReferralLink={handleCopyReferralLink}
         />
 
         <QuestsAndRewardsModal

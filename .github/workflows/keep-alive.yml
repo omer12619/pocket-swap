@@ -1,0 +1,16 @@
+name: Render 24/7 Keep-Alive Ping
+
+on:
+  schedule:
+    - cron: '*/14 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping PocketSwap Health & Sitemap Endpoints
+        run: |
+          curl -fsS https://pocket-swap.onrender.com/api/health
+          curl -fsS https://pocket-swap.onrender.com/sitemap.xml > /dev/null
+          curl -fsS https://pocket-swap.onrender.com/llms.txt > /dev/null
