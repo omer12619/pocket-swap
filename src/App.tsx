@@ -82,6 +82,7 @@ import { ShareQrModal } from './components/magic/ShareQrModal';
 import { WantedBoardModal } from './components/magic/WantedBoardModal';
 import { PrintableFlyerModal } from './components/magic/PrintableFlyerModal';
 import { SeoCategoryFooter } from './components/magic/SeoCategoryFooter';
+import { FounderDashboardModal } from './components/magic/FounderDashboardModal';
 import {
   isSoundEnabled,
   playCozySound,
@@ -269,6 +270,9 @@ export function App() {
   const [sharingItem, setSharingItem] = useState<TradeItem | null>(null);
   const [sharingProfile, setSharingProfile] = useState<UserProfile | null>(null);
   const [isFlyerModalOpen, setIsFlyerModalOpen] = useState<boolean>(false);
+  const [isFounderDashboardOpen, setIsFounderDashboardOpen] =
+    useState<boolean>(false);
+  const [onlineVillagersCount, setOnlineVillagersCount] = useState<number>(1);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
   const [browserNotifsEnabled, setBrowserNotifsEnabled] = useState<boolean>(
     () =>
@@ -778,6 +782,9 @@ export function App() {
       sse.onmessage = (ev) => {
         try {
           const parsed = JSON.parse(ev.data);
+          if (typeof parsed?.onlineCount === 'number') {
+            setOnlineVillagersCount(Math.max(1, parsed.onlineCount));
+          }
           if (parsed?.type === 'state_updated') {
             syncWithSupabase();
           }
@@ -1185,10 +1192,10 @@ export function App() {
     [itemsWithDistance, currentUser.id]
   );
 
-  // Smart Wishlist Match Detector: checks if any of our Pocket items match a listing's wishlist_hint
+  // Smart Wishlist & Wanted-Board Match Detector: checks if our Pocket items match target's wishlist OR if target item matches a Wanted Board wish
   const checkHasWishlistMatch = (targetItem: TradeItem): boolean => {
     const hint = (targetItem.wishlist_hint || '').toLowerCase();
-    return myInventory.some((myItem) => {
+    const matchesMyPocket = myInventory.some((myItem) => {
       const cat = myItem.category.toLowerCase();
       const brand = (myItem.brand || '').toLowerCase();
       const firstWord = myItem.title.toLowerCase().split(' ')[0];
@@ -1197,6 +1204,16 @@ export function App() {
         (brand.length > 2 && hint.includes(brand)) ||
         (firstWord.length > 3 && hint.includes(firstWord))
       );
+    });
+    if (matchesMyPocket) return true;
+
+    const itemTitleLower = targetItem.title.toLowerCase();
+    return wantedPosts.some((w) => {
+      const isoWords = w.looking_for
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((word) => word.length > 3);
+      return isoWords.some((word) => itemTitleLower.includes(word));
     });
   };
 
@@ -1999,6 +2016,19 @@ export function App() {
                 ? '📱 Mobile App Screen Mode'
                 : '🖥️ Desktop Website Mode'}
             </span>
+            <span className="ml-2 px-2 py-0.5 rounded-full bg-[#2F7A4C] border border-[#8BD1A0] text-[10px] font-extrabold text-white inline-flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#A8Ebc2] animate-ping" />
+              <span>{onlineVillagersCount} Online</span>
+            </span>
+            {isAdminMode && (
+              <button
+                type="button"
+                onClick={() => setIsFounderDashboardOpen(true)}
+                className="ml-2 px-2.5 py-0.5 rounded-full bg-[#F6B93B] text-[#4A3520] text-[10px] font-extrabold hover:bg-[#E7A92B]"
+              >
+                📊 Founder Analytics
+              </button>
+            )}
           </div>
         </div>
 
@@ -3945,7 +3975,16 @@ export function App() {
                       : 'Local + Cloud Hybrid Sync Active'}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {isAdminMode && (
+                    <button
+                      type="button"
+                      onClick={() => setIsFounderDashboardOpen(true)}
+                      className="px-3 py-1.5 rounded-xl bg-[#F6B93B] hover:bg-[#E7A92B] text-[#4A3520] text-xs font-extrabold"
+                    >
+                      📊 Analytics &amp; Moderation
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleToggleAdminMode}
@@ -4146,6 +4185,18 @@ export function App() {
           currentUser={currentUser}
           onClose={() => setIsFlyerModalOpen(false)}
           onCopyReferralLink={handleCopyReferralLink}
+        />
+
+        <FounderDashboardModal
+          isOpen={isFounderDashboardOpen}
+          items={items}
+          wantedPosts={wantedPosts}
+          onClose={() => setIsFounderDashboardOpen(false)}
+          onAdminDeleteItem={handleDeleteOwnItem}
+          onAdminDeleteWanted={(wantedId) => {
+            setWantedPosts((prev) => prev.filter((w) => w.id !== wantedId));
+            showToast('🛡️ Removed Wanted Board note globally.');
+          }}
         />
 
         <QuestsAndRewardsModal

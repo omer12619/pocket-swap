@@ -111,9 +111,42 @@ function sanitizePublicState(rawState) {
 }
 
 // ============================================================================
-// INFRASTRUCTURE UPGRADE 3: Real-Time Server-Sent Events (SSE) Push Stream
+// INFRASTRUCTURE UPGRADE 3: Real-Time Server-Sent Events (SSE) + Telemetry
 // ============================================================================
 const sseClients = new Set();
+let totalPageViews = 1;
+const uniqueVisitorIps = new Set();
+const referrerCounts = {
+  Direct: 1,
+  Reddit: 0,
+  'Google Search': 0,
+  'AI Search (ChatGPT/Perplexity)': 0,
+  'Neighbor Invite (?ref=)': 0,
+};
+
+function trackPageVisit(req, urlObj) {
+  totalPageViews += 1;
+  const ip = getClientIp(req);
+  if (ip && ip !== 'unknown') uniqueVisitorIps.add(ip);
+
+  const refHeader = String(req.headers.referer || '').toLowerCase();
+  if (urlObj.searchParams.get('ref')) {
+    referrerCounts['Neighbor Invite (?ref=)'] += 1;
+  } else if (refHeader.includes('reddit.com') || refHeader.includes('redd.it')) {
+    referrerCounts.Reddit += 1;
+  } else if (refHeader.includes('google.') || refHeader.includes('bing.')) {
+    referrerCounts['Google Search'] += 1;
+  } else if (
+    refHeader.includes('chatgpt.com') ||
+    refHeader.includes('openai.com') ||
+    refHeader.includes('perplexity.ai') ||
+    refHeader.includes('claude.ai')
+  ) {
+    referrerCounts['AI Search (ChatGPT/Perplexity)'] += 1;
+  } else {
+    referrerCounts.Direct += 1;
+  }
+}
 
 function broadcastSseEvent(eventPayload) {
   const frame = `data: ${JSON.stringify(eventPayload)}\n\n`;
@@ -249,14 +282,23 @@ const server = http.createServer(async (req, res) => {
 
   // 1a. GET /api/events — Real-Time Server-Sent Events (SSE) Push Stream
   if (req.method === 'GET' && url.pathname === '/api/events') {
+    trackPageVisit(req, url);
     res.writeHead(200, {
       ...SECURITY_HEADERS,
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
     });
-    res.write(`data: ${JSON.stringify({ type: 'connected', ts: Date.now() })}\n\n`);
     sseClients.add(res);
+    const onlineCount = Math.max(1, sseClients.size);
+    res.write(
+      `data: ${JSON.stringify({
+        type: 'connected',
+        onlineCount,
+        ts: Date.now(),
+      })}\n\n`
+    );
+    broadcastSseEvent({ type: 'online_count', onlineCount });
 
     const heartbeat = setInterval(() => {
       try {
@@ -270,8 +312,43 @@ const server = http.createServer(async (req, res) => {
     req.on('close', () => {
       clearInterval(heartbeat);
       sseClients.delete(res);
+      broadcastSseEvent({
+        type: 'online_count',
+        onlineCount: Math.max(1, sseClients.size),
+      });
     });
     return;
+  }
+
+  // 1a-metrics. GET /api/admin/metrics — Founder Live Analytics & Conversion Funnel
+  if (req.method === 'GET' && url.pathname === '/api/admin/metrics') {
+    const state = await getCloudState();
+    const trades = Array.isArray(state.trades) ? state.trades : [];
+    return sendJson(
+      res,
+      200,
+      {
+        onlineCount: Math.max(1, sseClients.size),
+        totalPageViews,
+        uniqueVisitors: Math.max(1, uniqueVisitorIps.size),
+        referrerCounts,
+        funnel: {
+          profiles: Math.max(
+            1,
+            Array.isArray(state.profiles) ? state.profiles.length : 1
+          ),
+          items: Array.isArray(state.items) ? state.items.length : 0,
+          wantedPosts: Array.isArray(state.wantedPosts)
+            ? state.wantedPosts.length
+            : 0,
+          trades: trades.length,
+          completedTrades: trades.filter((t) => t && t.status === 'completed')
+            .length,
+          reviews: Array.isArray(state.reviews) ? state.reviews.length : 0,
+        },
+      },
+      req
+    );
   }
 
   // 1b. GET /api/state — Load Shared Village Cloud State from RAM Cache (Sanitized)

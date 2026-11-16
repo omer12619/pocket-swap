@@ -451,17 +451,84 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
               </div>
             </div>
 
-            {/* Item Title */}
+            {/* Item Title + 3-Second Smart Auto-Fill */}
             <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-[#5C4328] mb-1">
-                🏷️ Item Name
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-[#5C4328]">
+                  🏷️ Item Name
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = title.trim().toLowerCase();
+                    if (!t) return;
+                    if (
+                      /switch|ps5|ps4|xbox|gameboy|nintendo|zelda|mario|playstation|controller|console|cartridge/.test(
+                        t
+                      )
+                    ) {
+                      setCategory('Gaming');
+                      setBrand(
+                        /sony|ps5|ps4|playstation/.test(t)
+                          ? 'Sony'
+                          : /xbox/.test(t)
+                          ? 'Microsoft'
+                          : 'Nintendo'
+                      );
+                      setRarity(/gameboy|vintage|limited|collector/.test(t) ? 'Epic' : 'Rare');
+                    } else if (
+                      /camera|polaroid|fujifilm|instax|keyboard|headphone|sony|apple|ipad|airpods|speaker|monitor|gadget/.test(
+                        t
+                      )
+                    ) {
+                      setCategory('Gadgets');
+                      setBrand(/sony/.test(t) ? 'Sony' : /apple|ipad|airpod/.test(t) ? 'Apple' : 'Original Maker');
+                      setRarity('Rare');
+                    } else if (/pokemon|card|funko|figure|lego|coin|pin|collectible/.test(t)) {
+                      setCategory('Collectibles');
+                      setRarity('Epic');
+                    } else if (/plant|monstera|pothos|lamp|mug|ceramic|vase|pillow|cozy|decor/.test(t)) {
+                      setCategory('Home & Cozy');
+                      setBrand('Local / Artisan');
+                    } else if (/book|novel|manga|comic|art|print|zine|hardcover/.test(t)) {
+                      setCategory('Books & Art');
+                    } else if (/vinyl|record|guitar|pedal|synth|ukulele|mic|audio/.test(t)) {
+                      setCategory('Music & Audio');
+                      setRarity('Rare');
+                    } else if (/board game|catan|chess|dnd|puzzle|plush|toy/.test(t)) {
+                      setCategory('Toys & Board Games');
+                    } else if (/bike|skateboard|tent|camp|racket|yoga|sport/.test(t)) {
+                      setCategory('Sports & Outdoors');
+                    } else if (/jacket|sneaker|nike|levi|hoodie|bag|shirt|vintage|watch/.test(t)) {
+                      setCategory('Fashion');
+                    } else if (/yarn|crochet|paint|sewing|craft|diy/.test(t)) {
+                      setCategory('Crafts & DIY');
+                    } else if (/drill|tool|wrench|garden|pot|seed/.test(t)) {
+                      setCategory('Tools & Garden');
+                    } else if (/baby|stroller|kids/.test(t)) {
+                      setCategory('Baby & Kids');
+                    }
+                    if (!description.trim()) {
+                      setDescription(
+                        `Well-kept ${title.trim()} ready for a local 0% cash swap! Tested and happy to let you inspect in person at a daytime cafe meetup.`
+                      );
+                    }
+                    if (!conditionNotes.trim()) {
+                      setConditionNotes('Clean, tested & stored indoors in a smoke-free home.');
+                    }
+                  }}
+                  className="px-2.5 py-0.5 rounded-lg bg-[#EBF7EE] hover:bg-[#D7F0DF] border border-[#8BD1A0] text-[#2F7A4C] text-[10px] font-extrabold flex items-center gap-1 transition-colors"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>✨ Smart Auto-Fill Specs</span>
+                </button>
+              </div>
               <input
                 type="text"
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., GameBoy Color Atomic Purple, Polaroid Camera..."
+                placeholder="Type item name (e.g. Nintendo Switch Zelda) & tap Smart Auto-Fill..."
                 className="w-full rounded-2xl bg-white border-2 border-[#D8C5A0] px-3.5 py-2.5 text-xs font-bold text-[#4A3520] focus:outline-none focus:border-[#4E9F6E]"
               />
             </div>
@@ -622,6 +689,33 @@ export const UploadItemModal: React.FC<UploadItemModalProps> = ({
                   placeholder="e.g., Retro games, headphones, plants, or surprise me!"
                   className="w-full rounded-2xl bg-white border-2 border-[#D8C5A0] px-3.5 py-2 text-xs font-bold text-[#4A3520] focus:outline-none focus:border-[#4E9F6E]"
                 />
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {[
+                    '🎮 Switch / PS5 Games',
+                    '🪴 Houseplants & Cuttings',
+                    '📚 Sci-Fi / Art Books',
+                    '📱 Desk Gadgets',
+                    '🎲 Board Games',
+                    '✨ Open to Any Cool Offer!',
+                  ].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() =>
+                        setWishlistHint((prev) =>
+                          prev.trim()
+                            ? prev.includes(chip)
+                              ? prev
+                              : `${prev}, ${chip}`
+                            : chip
+                        )
+                      }
+                      className="px-2 py-1 rounded-lg bg-[#FFFDF7] hover:bg-[#F5E9CE] border border-[#D8C5A0] text-[10px] font-extrabold text-[#6E5031] transition-colors"
+                    >
+                      + {chip}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

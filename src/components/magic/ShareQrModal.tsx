@@ -7,6 +7,7 @@ import {
   Check,
   QrCode,
   MessageCircle,
+  Download,
 } from 'lucide-react';
 import { TradeItem, UserProfile } from '../../types/game';
 
@@ -79,6 +80,129 @@ export const ShareQrModal: React.FC<ShareQrModalProps> = ({
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(
     `${shareText}\n👉 ${shareUrl}`
   )}`;
+
+  const handleDownloadTradingCardPng = async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 760;
+    canvas.height = 960;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // 1. Cozy Parchment Card Background & Border
+    ctx.fillStyle = '#FFF9EB';
+    ctx.fillRect(0, 0, 760, 960);
+
+    ctx.strokeStyle = '#4E9F6E';
+    ctx.lineWidth = 18;
+    ctx.strokeRect(18, 18, 724, 924);
+
+    ctx.strokeStyle = '#D8C5A0';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(34, 34, 692, 892);
+
+    // 2. Top Header Banner
+    ctx.fillStyle = '#4A3520';
+    ctx.fillRect(46, 46, 668, 78);
+
+    ctx.fillStyle = '#F6B93B';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('🌿 POCKETSWAP • 0% CASH LOCAL TRADE CARD', 70, 82);
+
+    ctx.fillStyle = '#FFF9EB';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText(
+      shareItem
+        ? `✨ ${shareItem.rarity.toUpperCase()} TIER • ${shareItem.category.toUpperCase()} • ${shareItem.year_made}`
+        : `🪪 VILLAGER PASSPORT • LV.${shareProfile?.level} • ⭐ ${shareProfile?.karma_score.toFixed(2)} KARMA`,
+      70,
+      108
+    );
+
+    // 3. Load Item Image or Draw Avatar Box
+    const loadImg = (src: string): Promise<HTMLImageElement | null> =>
+      new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = src;
+      });
+
+    if (shareItem) {
+      const itemImg = await loadImg(shareItem.media_url);
+      ctx.fillStyle = '#F5E9CE';
+      ctx.fillRect(56, 142, 648, 390);
+      if (itemImg) {
+        ctx.drawImage(itemImg, 56, 142, 648, 390);
+      }
+    } else if (shareProfile) {
+      ctx.fillStyle = '#EBF7EE';
+      ctx.fillRect(56, 142, 648, 300);
+      ctx.font = '120px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(shareProfile.avatar_emoji || '🦊', 380, 325);
+      ctx.textAlign = 'left';
+    }
+
+    // 4. Title & Provenance Specs
+    ctx.fillStyle = '#4A3520';
+    ctx.font = 'bold 30px sans-serif';
+    const titleStr = (shareItem ? shareItem.title : shareProfile?.display_name || 'PocketSwap').slice(0, 36);
+    ctx.fillText(titleStr, 56, 582);
+
+    ctx.fillStyle = '#2F7A4C';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillText(
+      shareItem
+        ? `Condition: ${shareItem.condition} • 📍 ${shareItem.location_name}`
+        : `@${shareProfile?.username} • 📍 ${shareProfile?.location_name}`,
+      56,
+      616
+    );
+
+    // 5. Wishlist / Bio Box
+    ctx.fillStyle = '#F5E9CE';
+    ctx.fillRect(56, 642, 648, 96);
+    ctx.fillStyle = '#8C5800';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText(
+      shareItem ? '💫 WANTS IN RETURN (WISHLIST):' : '📝 TRADER BIO & VIBE:',
+      74,
+      672
+    );
+    ctx.fillStyle = '#4A3520';
+    ctx.font = 'bold 18px sans-serif';
+    const wishStr = (
+      shareItem
+        ? shareItem.wishlist_hint || 'Open to local swap offers!'
+        : shareProfile?.bio || 'Ready to trade locally!'
+    ).slice(0, 56);
+    ctx.fillText(wishStr, 74, 706);
+
+    // 6. Bottom QR & Call to Action
+    const qrImg = await loadImg(qrImageUrl);
+    if (qrImg) {
+      ctx.drawImage(qrImg, 560, 756, 140, 140);
+    }
+
+    ctx.fillStyle = '#4A3520';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('📱 Scan QR to Offer a Swap!', 56, 805);
+    ctx.fillStyle = '#6E5031';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText(` Listed by ${shareItem ? shareItem.owner_name : shareProfile?.display_name}`, 56, 835);
+    ctx.fillStyle = '#4E9F6E';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('🌐 pocket-swap.onrender.com', 56, 868);
+
+    const dataUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `pocketswap-card-${(shareItem?.title || shareProfile?.username || 'item')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')}.png`;
+    a.click();
+  };
 
   return (
     <AnimatePresence>
@@ -183,6 +307,16 @@ export const ShareQrModal: React.FC<ShareQrModalProps> = ({
                 )}
               </button>
             </div>
+
+            {/* Downloadable RPG Trading Card PNG Button */}
+            <button
+              type="button"
+              onClick={handleDownloadTradingCardPng}
+              className="w-full py-2.5 px-3 rounded-2xl bg-[#5C4328] hover:bg-[#4A3520] text-[#FFF9EB] font-game text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors"
+            >
+              <Download className="w-4 h-4 text-[#F6B93B]" />
+              <span>🃏 Download RPG Trading Card (PNG for Reddit/IG)</span>
+            </button>
 
             {/* Share Action Buttons */}
             <div className="grid grid-cols-2 gap-2">
