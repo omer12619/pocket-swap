@@ -351,6 +351,66 @@ const server = http.createServer(async (req, res) => {
     );
   }
 
+  // 1a-indexnow. POST /api/admin/indexnow — Submit All URLs to IndexNow (Bing, ChatGPT Search, Yandex, Naver)
+  if (req.method === 'POST' && url.pathname === '/api/admin/indexnow') {
+    const state = await getCloudState();
+    const baseUrl = 'https://pocket-swap.onrender.com';
+    const key = 'pocketswapindexnow2026key8842';
+    const categories = [
+      'Gaming',
+      'Gadgets',
+      'Collectibles',
+      'Fashion',
+      'Books & Art',
+      'Home & Cozy',
+      'Music & Audio',
+      'Sports & Outdoors',
+      'Toys & Board Games',
+      'Crafts & DIY',
+      'Baby & Kids',
+      'Tools & Garden',
+    ];
+    const itemUrls = (Array.isArray(state.items) ? state.items : [])
+      .filter((i) => i && i.id && i.is_for_trade)
+      .slice(0, 50)
+      .map((i) => `${baseUrl}/?item=${encodeURIComponent(i.id)}`);
+
+    const urlList = [
+      `${baseUrl}/`,
+      `${baseUrl}/llms.txt`,
+      `${baseUrl}/llms-full.txt`,
+      `${baseUrl}/sitemap.xml`,
+      ...categories.map(
+        (cat) => `${baseUrl}/?category=${encodeURIComponent(cat)}`
+      ),
+      ...itemUrls,
+    ];
+
+    try {
+      const indexRes = await fetch('https://api.indexnow.org/indexnow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({
+          host: 'pocket-swap.onrender.com',
+          key,
+          keyLocation: `${baseUrl}/${key}.txt`,
+          urlList,
+        }),
+      });
+      return sendJson(res, 200, {
+        ok: true,
+        submittedCount: urlList.length,
+        status: indexRes.status,
+      });
+    } catch (err) {
+      return sendJson(res, 200, {
+        ok: false,
+        submittedCount: urlList.length,
+        error: String(err),
+      });
+    }
+  }
+
   // 1b. GET /api/state — Load Shared Village Cloud State from RAM Cache (Sanitized)
   if (req.method === 'GET' && url.pathname === '/api/state') {
     try {

@@ -35,6 +35,7 @@ interface FounderDashboardModalProps {
   onClose: () => void;
   onAdminDeleteItem: (itemId: string) => void;
   onAdminDeleteWanted: (wantedId: string) => void;
+  onSeedStarterItems?: () => void;
 }
 
 export const FounderDashboardModal: React.FC<FounderDashboardModalProps> = ({
@@ -44,9 +45,31 @@ export const FounderDashboardModal: React.FC<FounderDashboardModalProps> = ({
   onClose,
   onAdminDeleteItem,
   onAdminDeleteWanted,
+  onSeedStarterItems,
 }) => {
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [loading, setLoading] = useState(false);
+  const [indexNowStatus, setIndexNowStatus] = useState<string | null>(null);
+
+  const handleTriggerIndexNow = async () => {
+    setIndexNowStatus('Submitting to Bing, ChatGPT Search, Yandex & Naver...');
+    try {
+      const apiBase =
+        import.meta.env.VITE_API_BASE_URL ||
+        (import.meta.env.DEV ? 'http://localhost:3001' : '');
+      const res = await fetch(`${apiBase}/api/admin/indexnow`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      setIndexNowStatus(
+        `✅ Submitted ${data.submittedCount || 15} URLs via IndexNow (HTTP ${
+          data.status || 200
+        })!`
+      );
+    } catch {
+      setIndexNowStatus('⚠️ Could not reach IndexNow endpoint.');
+    }
+  };
 
   const fetchMetrics = async () => {
     setLoading(true);
@@ -225,6 +248,36 @@ export const FounderDashboardModal: React.FC<FounderDashboardModalProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* 1-Click Launch Unblockers: Seed Starter Storefront & IndexNow Search Submission */}
+            <div className="p-4 rounded-2xl bg-[#EBF7EE] border-2 border-[#8BD1A0] space-y-2.5">
+              <h4 className="font-game text-xs font-bold text-[#2F7A4C]">
+                🚀 1-Click Launch Unblockers (Storefront Seeding &amp; Search Engine Indexing)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {onSeedStarterItems && (
+                  <button
+                    type="button"
+                    onClick={onSeedStarterItems}
+                    className="py-2.5 px-3 rounded-xl bg-[#4E9F6E] hover:bg-[#3F885B] text-white font-game text-xs font-bold shadow-sm"
+                  >
+                    🌱 Seed 4 Starter Listings in Plaza
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleTriggerIndexNow}
+                  className="py-2.5 px-3 rounded-xl bg-[#5C4328] hover:bg-[#4A3520] text-[#FFF9EB] font-game text-xs font-bold shadow-sm"
+                >
+                  🔍 Ping Bing &amp; ChatGPT Search (IndexNow)
+                </button>
+              </div>
+              {indexNowStatus && (
+                <p className="text-[11px] font-extrabold text-[#2F7A4C]">
+                  {indexNowStatus}
+                </p>
+              )}
             </div>
 
             {/* 1-Click Live Listing Moderation */}

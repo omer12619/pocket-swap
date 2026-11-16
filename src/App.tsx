@@ -4197,6 +4197,129 @@ export function App() {
             setWantedPosts((prev) => prev.filter((w) => w.id !== wantedId));
             showToast('🛡️ Removed Wanted Board note globally.');
           }}
+          onSeedStarterItems={() => {
+            const baseLat = currentUser.latitude;
+            const baseLng = currentUser.longitude;
+            const loc = currentUser.location_name;
+            const starterItems: TradeItem[] = [
+              {
+                id: `item-seed-${Date.now()}-1`,
+                owner_id: 'founder-plaza-host',
+                owner_name: 'Sunny Leaf Community Shelf',
+                owner_avatar: '🦉',
+                owner_karma: 5.0,
+                owner_level: 5,
+                title: 'Legend of Zelda: Breath of the Wild (Switch)',
+                description:
+                  'Complete in original case! Finished the main quest and looking to swap for another cozy Switch game, board game, or hardcover book.',
+                category: 'Gaming',
+                condition: 'Mint ✨',
+                rarity: 'Epic',
+                year_made: 2021,
+                brand: 'Nintendo',
+                accessories_included: 'Original Game Case + Cartridge',
+                condition_notes: 'Tested & spotless cartridge pins.',
+                media_url:
+                  'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?auto=format&fit=crop&w=800&q=80',
+                media_type: 'image',
+                wishlist_hint: 'Mario Wonder, Catan, Sci-Fi Books, or Houseplants',
+                is_for_trade: true,
+                latitude: baseLat + 0.0032,
+                longitude: baseLng + 0.0024,
+                location_name: loc,
+                likes_count: 3,
+                created_at: new Date().toISOString(),
+              },
+              {
+                id: `item-seed-${Date.now()}-2`,
+                owner_id: 'founder-plaza-host',
+                owner_name: 'Sunny Leaf Community Shelf',
+                owner_avatar: '🦉',
+                owner_karma: 5.0,
+                owner_level: 5,
+                title: 'Rooted Monstera Deliciosa in Ceramic Pot',
+                description:
+                  'Healthy fenestrated leaf with strong roots in a cream ceramic planter. Ready for a new sunny window!',
+                category: 'Home & Cozy',
+                condition: 'Mint ✨',
+                rarity: 'Rare',
+                year_made: 2025,
+                brand: 'Local Greenhouse',
+                accessories_included: '6-inch Glazed Ceramic Planter + Saucer',
+                condition_notes: 'New leaf unfurling this week!',
+                media_url:
+                  'https://images.unsplash.com/photo-1614594975525-e45190c55d0b?auto=format&fit=crop&w=800&q=80',
+                media_type: 'image',
+                wishlist_hint: 'Books, Coffee Mug, Art Prints, or Pothos Cutting',
+                is_for_trade: true,
+                latitude: baseLat - 0.0028,
+                longitude: baseLng + 0.0035,
+                location_name: loc,
+                likes_count: 5,
+                created_at: new Date().toISOString(),
+              },
+              {
+                id: `item-seed-${Date.now()}-3`,
+                owner_id: 'founder-plaza-host',
+                owner_name: 'Sunny Leaf Community Shelf',
+                owner_avatar: '🦉',
+                owner_karma: 5.0,
+                owner_level: 5,
+                title: 'Fujifilm Instax Mini Instant Film Camera',
+                description:
+                  'Pastel cream instant film camera in great working order. Super fun for parties and coffee-shop meetups!',
+                category: 'Gadgets',
+                condition: 'Great 🌿',
+                rarity: 'Rare',
+                year_made: 2022,
+                brand: 'Fujifilm',
+                accessories_included: 'Wrist Strap + Fresh AA Batteries',
+                condition_notes: 'Flash and lens tested.',
+                media_url:
+                  'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=800&q=80',
+                media_type: 'image',
+                wishlist_hint: 'Vinyl Records, Retro Games, or Mechanical Keyboard',
+                is_for_trade: true,
+                latitude: baseLat + 0.0019,
+                longitude: baseLng - 0.0031,
+                location_name: loc,
+                likes_count: 4,
+                created_at: new Date().toISOString(),
+              },
+              {
+                id: `item-seed-${Date.now()}-4`,
+                owner_id: 'founder-plaza-host',
+                owner_name: 'Sunny Leaf Community Shelf',
+                owner_avatar: '🦉',
+                owner_karma: 5.0,
+                owner_level: 5,
+                title: 'Catan Strategy Board Game (Complete Box)',
+                description:
+                  'All wooden settlements, roads, resource cards, and hex tiles accounted for. Ready for board-game night!',
+                category: 'Toys & Board Games',
+                condition: 'Great 🌿',
+                rarity: 'Rare',
+                year_made: 2020,
+                brand: 'Catan Studio',
+                accessories_included: 'Full Box + Rulebook + All Cards & Pieces',
+                condition_notes: 'Cards kept in protective sleeves.',
+                media_url:
+                  'https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?auto=format&fit=crop&w=800&q=80',
+                media_type: 'image',
+                wishlist_hint: 'Other Board Games, Fantasy Novels, or Desk Lamp',
+                is_for_trade: true,
+                latitude: baseLat - 0.0021,
+                longitude: baseLng - 0.0022,
+                location_name: loc,
+                likes_count: 6,
+                created_at: new Date().toISOString(),
+              },
+            ];
+            setItems((prev) => [...starterItems, ...prev]);
+            showToast(
+              '🌱 Seeded 4 Community Shelf starter items in the Plaza! (You can remove any item in 1 click below)'
+            );
+          }}
         />
 
         <QuestsAndRewardsModal
