@@ -198,13 +198,37 @@ export const AuthPassportModal: React.FC<AuthPassportModalProps> = ({
     onClose();
   };
 
-  const handleDirectLogin = (e: React.FormEvent) => {
+  const handleDirectLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     const query = loginIdentity.trim().toLowerCase().replace(/^@/, '');
     if (!query) {
       setErrorMsg('Enter your @username, display name, or email.');
       return;
+    }
+
+    try {
+      const apiBase =
+        import.meta.env.VITE_API_BASE_URL ||
+        (import.meta.env.DEV ? 'http://localhost:3001' : '');
+      const res = await fetch(`${apiBase}/api/auth/verify-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity: query, pin: loginPin.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.ok && data.profile) {
+          onSwitchPlayer(data.profile);
+          onClose();
+          return;
+        }
+      } else if (res.status === 401) {
+        setErrorMsg('Incorrect 4-digit PIN passcode for this protected account!');
+        return;
+      }
+    } catch {
+      // Fallback to local profile list check
     }
 
     const found = allProfiles.find(
@@ -230,7 +254,7 @@ export const AuthPassportModal: React.FC<AuthPassportModalProps> = ({
 
   const handleSelectProfileFromList = (prof: UserProfile) => {
     setErrorMsg(null);
-    if (prof.passcode_pin && prof.id !== currentUser.id) {
+    if ((prof.passcode_pin || prof.has_pin) && prof.id !== currentUser.id) {
       setUnlockingProfile(prof);
       setLoginPin('');
       return;
@@ -239,10 +263,42 @@ export const AuthPassportModal: React.FC<AuthPassportModalProps> = ({
     onClose();
   };
 
-  const handleUnlockProtectedProfile = (e: React.FormEvent) => {
+  const handleUnlockProtectedProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!unlockingProfile) return;
-    if (unlockingProfile.passcode_pin !== loginPin.trim()) {
+
+    try {
+      const apiBase =
+        import.meta.env.VITE_API_BASE_URL ||
+        (import.meta.env.DEV ? 'http://localhost:3001' : '');
+      const res = await fetch(`${apiBase}/api/auth/verify-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: unlockingProfile.id,
+          pin: loginPin.trim(),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.ok && data.profile) {
+          onSwitchPlayer(data.profile);
+          setUnlockingProfile(null);
+          onClose();
+          return;
+        }
+      } else if (res.status === 401) {
+        setErrorMsg('Incorrect 4-digit PIN passcode!');
+        return;
+      }
+    } catch {
+      // Fallback
+    }
+
+    if (
+      unlockingProfile.passcode_pin &&
+      unlockingProfile.passcode_pin !== loginPin.trim()
+    ) {
       setErrorMsg('Incorrect 4-digit PIN passcode!');
       return;
     }
@@ -591,11 +647,11 @@ export const AuthPassportModal: React.FC<AuthPassportModalProps> = ({
                 {/* Quick Account & Demo Trader Switcher */}
                 <div className="space-y-2">
                   <span className="block text-[10px] font-extrabold uppercase tracking-wider text-[#7C6246]">
-                    ⚡ Saved & Demo Villager Accounts
+                    ⚡ Registered Villager Accounts
                   </span>
                   {allProfiles.map((prof) => {
                     const isCurrent = prof.id === currentUser.id;
-                    const isProtected = Boolean(prof.passcode_pin);
+                    const isProtected = Boolean(prof.passcode_pin || prof.has_pin);
                     return (
                       <button
                         key={prof.id}

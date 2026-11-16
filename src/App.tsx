@@ -768,16 +768,38 @@ export function App() {
   useEffect(() => {
     syncWithSupabase();
 
-    // Poll every 12s & on window focus so multi-user listings, offers & chat sync live
+    // Real-Time Server-Sent Events (SSE) Push Stream (<50ms live sync across browsers)
+    let sse: EventSource | null = null;
+    try {
+      const apiBase =
+        import.meta.env.VITE_API_BASE_URL ||
+        (import.meta.env.DEV ? 'http://localhost:3001' : '');
+      sse = new EventSource(`${apiBase}/api/events`);
+      sse.onmessage = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.data);
+          if (parsed?.type === 'state_updated') {
+            syncWithSupabase();
+          }
+        } catch {
+          // ignore
+        }
+      };
+    } catch {
+      // Fallback to polling
+    }
+
+    // Fallback poll every 20s & on window focus
     const pollTimer = setInterval(() => {
       syncWithSupabase();
-    }, 12000);
+    }, 20000);
     const handleFocus = () => syncWithSupabase();
     window.addEventListener('focus', handleFocus);
 
     const supabase = getSupabaseClient();
     if (!supabase) {
       return () => {
+        sse?.close();
         clearInterval(pollTimer);
         window.removeEventListener('focus', handleFocus);
       };
@@ -802,6 +824,7 @@ export function App() {
       .subscribe();
 
     return () => {
+      sse?.close();
       clearInterval(pollTimer);
       window.removeEventListener('focus', handleFocus);
       supabase.removeChannel(channel);

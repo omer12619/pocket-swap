@@ -1,6 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 
@@ -36,20 +37,169 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false },
 });
 
-function sendJson(res, status, payload) {
-  res.writeHead(status, {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  });
-  res.end(JSON.stringify(payload));
+// ============================================================================
+// INFRASTRUCTURE UPGRADE 1: In-Memory RAM State Cache + Write-Mutex Queue
+// ============================================================================
+let cachedCloudState = null;
+let cachedAtMs = 0;
+const CACHE_TTL_MS = 8000;
+let writeQueuePromise = Promise.resolve();
+let lastBackupDate = '';
+
+const DEFAULT_EMPTY_STATE = () => ({
+  items: [],
+  trades: [],
+  profiles: [],
+  reviews: [],
+  wantedPosts: [],
+  friends: [],
+  deletedItemIds: [],
+  updatedAt: new Date().toISOString(),
+});
+
+async function getCloudState(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && cachedCloudState && now - cachedAtMs < CACHE_TTL_MS) {
+    return cachedCloudState;
+  }
+  try {
+    const { data, error } = await supabaseAdmin.storage
+      .from('item-media')
+      .download('cloud-db/state.json');
+    if (!error && data) {
+      const parsed = JSON.parse(await data.text());
+      if (parsed && typeof parsed === 'object') {
+        cachedCloudState = { ...DEFAULT_EMPTY_STATE(), ...parsed };
+        cachedAtMs = Date.now();
+        return cachedCloudState;
+      }
+    }
+  } catch {
+    // Fallback to cached or empty state
+  }
+  if (!cachedCloudState) {
+    cachedCloudState = DEFAULT_EMPTY_STATE();
+    cachedAtMs = Date.now();
+  }
+  return cachedCloudState;
 }
 
+function withWriteLock(taskFn) {
+  const next = writeQueuePromise.then(() => taskFn());
+  writeQueuePromise = next.catch(() => {});
+  return next;
+}
+
+// ============================================================================
+// INFRASTRUCTURE UPGRADE 2: Privacy Sanitizer (Strips PINs & Emails on Public GET)
+// ============================================================================
+function sanitizePublicState(rawState) {
+  if (!rawState || typeof rawState !== 'object') return DEFAULT_EMPTY_STATE();
+  return {
+    ...rawState,
+    profiles: Array.isArray(rawState.profiles)
+      ? rawState.profiles.map((p) => {
+          if (!p) return p;
+          const { passcode_pin, email, ...safeProfile } = p;
+          return {
+            ...safeProfile,
+            has_pin: Boolean(passcode_pin || p.has_pin),
+          };
+        })
+      : [],
+  };
+}
+
+// ============================================================================
+// INFRASTRUCTURE UPGRADE 3: Real-Time Server-Sent Events (SSE) Push Stream
+// ============================================================================
+const sseClients = new Set();
+
+function broadcastSseEvent(eventPayload) {
+  const frame = `data: ${JSON.stringify(eventPayload)}\n\n`;
+  for (const clientRes of sseClients) {
+    try {
+      clientRes.write(frame);
+    } catch {
+      sseClients.delete(clientRes);
+    }
+  }
+}
+
+// ============================================================================
+// INFRASTRUCTURE UPGRADE 4: IP Token-Bucket Rate Limiter + 8MB Payload Cap + Gzip
+// ============================================================================
+const rateLimitMap = new Map();
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+function checkRateLimit(req, bucketName, maxPerMinute) {
+  const ip = getClientIp(req);
+  const key = `${ip}:${bucketName}`;
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + 60000 });
+    return true;
+  }
+  if (entry.count >= maxPerMinute) {
+    return false;
+  }
+  entry.count += 1;
+  return true;
+}
+
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+function sendJson(res, status, payload, req = null) {
+  const rawJson = JSON.stringify(payload);
+  const acceptsGzip =
+    req &&
+    typeof req.headers?.['accept-encoding'] === 'string' &&
+    req.headers['accept-encoding'].includes('gzip') &&
+    rawJson.length > 1024;
+
+  if (acceptsGzip) {
+    const compressed = zlib.gzipSync(Buffer.from(rawJson, 'utf-8'));
+    res.writeHead(status, {
+      ...SECURITY_HEADERS,
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Encoding': 'gzip',
+    });
+    return res.end(compressed);
+  }
+
+  res.writeHead(status, {
+    ...SECURITY_HEADERS,
+    'Content-Type': 'application/json; charset=utf-8',
+  });
+  res.end(rawJson);
+}
+
+const MAX_BODY_BYTES = 8 * 1024 * 1024; // 8MB strict OOM protection
+
 function parseBody(req) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let raw = '';
+    let bytes = 0;
     req.on('data', (chunk) => {
+      bytes += chunk.length;
+      if (bytes > MAX_BODY_BYTES) {
+        reject(new Error('PAYLOAD_TOO_LARGE'));
+        req.destroy();
+        return;
+      }
       raw += chunk;
     });
     req.on('end', () => {
@@ -59,6 +209,7 @@ function parseBody(req) {
         resolve({});
       }
     });
+    req.on('error', () => resolve({}));
   });
 }
 
@@ -96,111 +247,198 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // 1b. GET /api/state — Load Shared Village Cloud State via Admin Client
+  // 1a. GET /api/events — Real-Time Server-Sent Events (SSE) Push Stream
+  if (req.method === 'GET' && url.pathname === '/api/events') {
+    res.writeHead(200, {
+      ...SECURITY_HEADERS,
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+    });
+    res.write(`data: ${JSON.stringify({ type: 'connected', ts: Date.now() })}\n\n`);
+    sseClients.add(res);
+
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(': keep-alive\n\n');
+      } catch {
+        clearInterval(heartbeat);
+        sseClients.delete(res);
+      }
+    }, 25000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    });
+    return;
+  }
+
+  // 1b. GET /api/state — Load Shared Village Cloud State from RAM Cache (Sanitized)
   if (req.method === 'GET' && url.pathname === '/api/state') {
     try {
-      const { data, error } = await supabaseAdmin.storage
-        .from('item-media')
-        .download('cloud-db/state.json');
-      if (error || !data) {
-        return sendJson(res, 200, {
-          items: [],
-          trades: [],
-          profiles: [],
-          reviews: [],
-          wantedPosts: [],
-          friends: [],
-          updatedAt: new Date().toISOString(),
-        });
-      }
-      const text = await data.text();
-      const parsed = JSON.parse(text);
-      return sendJson(res, 200, parsed);
+      const state = await getCloudState();
+      return sendJson(res, 200, sanitizePublicState(state), req);
     } catch (err) {
-      return sendJson(res, 500, { error: String(err) });
+      return sendJson(res, 500, { error: String(err) }, req);
     }
   }
 
-  // 1c. POST /api/state — Smart Multi-User Merge of Shared Village Cloud State via Admin Client
+  // 1c. POST /api/state — Serialized Write-Mutex Multi-User Merge + Daily Cloud Backup + SSE Broadcast
   if (req.method === 'POST' && url.pathname === '/api/state') {
-    const body = await parseBody(req);
+    if (!checkRateLimit(req, 'state_write', 60)) {
+      return sendJson(res, 429, { error: 'Rate limit exceeded. Please wait a moment.' });
+    }
+    let body;
     try {
-      let existing = {
-        items: [],
-        trades: [],
-        profiles: [],
-        reviews: [],
-        wantedPosts: [],
-        friends: [],
-        deletedItemIds: [],
-      };
-      try {
-        const { data: existingBlob } = await supabaseAdmin.storage
-          .from('item-media')
-          .download('cloud-db/state.json');
-        if (existingBlob) {
-          const parsed = JSON.parse(await existingBlob.text());
-          if (parsed && typeof parsed === 'object') {
-            existing = { ...existing, ...parsed };
-          }
-        }
-      } catch {
-        // First write or missing file
+      body = await parseBody(req);
+    } catch (err) {
+      if (err && err.message === 'PAYLOAD_TOO_LARGE') {
+        return sendJson(res, 413, { error: 'Payload exceeds 8MB limit.' });
       }
+      return sendJson(res, 400, { error: 'Invalid request body' });
+    }
 
-      const deletedSet = new Set([
-        ...(Array.isArray(existing.deletedItemIds) ? existing.deletedItemIds : []),
-        ...(Array.isArray(body.deletedItemIds) ? body.deletedItemIds : []),
-      ]);
+    try {
+      const mergedState = await withWriteLock(async () => {
+        const existing = await getCloudState();
 
-      const mergeById = (oldList = [], newList = [], filterDeleted = false) => {
-        const map = new Map();
-        for (const entry of Array.isArray(oldList) ? oldList : []) {
-          if (entry && entry.id && (!filterDeleted || !deletedSet.has(entry.id))) {
-            map.set(entry.id, entry);
+        const deletedSet = new Set([
+          ...(Array.isArray(existing.deletedItemIds) ? existing.deletedItemIds : []),
+          ...(Array.isArray(body.deletedItemIds) ? body.deletedItemIds : []),
+        ]);
+
+        const mergeById = (oldList = [], newList = [], filterDeleted = false, preserveSecrets = false) => {
+          const map = new Map();
+          for (const entry of Array.isArray(oldList) ? oldList : []) {
+            if (entry && entry.id && (!filterDeleted || !deletedSet.has(entry.id))) {
+              map.set(entry.id, entry);
+            }
           }
-        }
-        for (const entry of Array.isArray(newList) ? newList : []) {
-          if (entry && entry.id && (!filterDeleted || !deletedSet.has(entry.id))) {
-            map.set(entry.id, { ...(map.get(entry.id) || {}), ...entry });
+          for (const entry of Array.isArray(newList) ? newList : []) {
+            if (entry && entry.id && (!filterDeleted || !deletedSet.has(entry.id))) {
+              const prev = map.get(entry.id) || {};
+              const mergedEntry = { ...prev, ...entry };
+              if (preserveSecrets) {
+                if (!entry.passcode_pin && prev.passcode_pin) {
+                  mergedEntry.passcode_pin = prev.passcode_pin;
+                }
+                if (!entry.email && prev.email) {
+                  mergedEntry.email = prev.email;
+                }
+              }
+              map.set(entry.id, mergedEntry);
+            }
           }
-        }
-        return Array.from(map.values());
-      };
+          return Array.from(map.values());
+        };
 
-      const mergedState = {
-        items: mergeById(existing.items, body.items, true),
-        trades: mergeById(existing.trades, body.trades, false),
-        profiles: mergeById(existing.profiles, body.profiles, false),
-        reviews: mergeById(existing.reviews, body.reviews, false),
-        wantedPosts: mergeById(existing.wantedPosts, body.wantedPosts, false),
-        friends: mergeById(existing.friends, body.friends, false),
-        deletedItemIds: Array.from(deletedSet).slice(-200),
-        updatedAt: new Date().toISOString(),
-      };
+        const nextState = {
+          items: mergeById(existing.items, body.items, true, false),
+          trades: mergeById(existing.trades, body.trades, false, false),
+          profiles: mergeById(existing.profiles, body.profiles, false, true),
+          reviews: mergeById(existing.reviews, body.reviews, false, false),
+          wantedPosts: mergeById(existing.wantedPosts, body.wantedPosts, false, false),
+          friends: mergeById(existing.friends, body.friends, false, false),
+          deletedItemIds: Array.from(deletedSet).slice(-200),
+          updatedAt: new Date().toISOString(),
+        };
 
-      const { error } = await supabaseAdmin.storage
-        .from('item-media')
-        .upload(
-          'cloud-db/state.json',
-          Buffer.from(JSON.stringify(mergedState), 'utf-8'),
-          {
+        cachedCloudState = nextState;
+        cachedAtMs = Date.now();
+
+        const serialized = Buffer.from(JSON.stringify(nextState), 'utf-8');
+        const { error } = await supabaseAdmin.storage
+          .from('item-media')
+          .upload('cloud-db/state.json', serialized, {
             contentType: 'application/json',
             upsert: true,
-          }
-        );
-      if (error) {
-        return sendJson(res, 500, { error: error.message });
-      }
-      return sendJson(res, 200, { ok: true, state: mergedState });
+          });
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        // Automated Daily Rolling Cloud Backup Snapshot (cloud-db/backups/state-YYYY-MM-DD.json)
+        const todayIso = new Date().toISOString().slice(0, 10);
+        if (lastBackupDate !== todayIso) {
+          lastBackupDate = todayIso;
+          supabaseAdmin.storage
+            .from('item-media')
+            .upload(`cloud-db/backups/state-${todayIso}.json`, serialized, {
+              contentType: 'application/json',
+              upsert: true,
+            })
+            .catch(() => {});
+        }
+
+        return nextState;
+      });
+
+      broadcastSseEvent({
+        type: 'state_updated',
+        updatedAt: mergedState.updatedAt,
+      });
+
+      return sendJson(
+        res,
+        200,
+        { ok: true, state: sanitizePublicState(mergedState) },
+        req
+      );
     } catch (err) {
-      return sendJson(res, 500, { error: String(err) });
+      return sendJson(res, 500, { error: String(err) }, req);
     }
   }
 
-  // 1d. POST /api/media/upload — Upload Item / Chat Photo or Video to Supabase Storage via Admin Client
+  // 1c-auth. POST /api/auth/verify-pin — Server-Side PIN Passcode Verification
+  if (req.method === 'POST' && url.pathname === '/api/auth/verify-pin') {
+    if (!checkRateLimit(req, 'auth_pin', 20)) {
+      return sendJson(res, 429, { error: 'Too many PIN attempts. Try again in 1 minute.' });
+    }
+    const body = await parseBody(req).catch(() => ({}));
+    const { userId, identity, pin } = body;
+    const state = await getCloudState();
+    const profiles = Array.isArray(state.profiles) ? state.profiles : [];
+    const target = profiles.find((p) => {
+      if (userId && p.id === userId) return true;
+      if (identity) {
+        const q = String(identity).trim().toLowerCase().replace(/^@/, '');
+        return (
+          p.username?.toLowerCase() === q ||
+          p.display_name?.toLowerCase() === q ||
+          (p.email && p.email.toLowerCase() === q)
+        );
+      }
+      return false;
+    });
+
+    if (!target) {
+      return sendJson(res, 404, { ok: false, error: 'Villager account not found.' });
+    }
+    if (target.passcode_pin && target.passcode_pin !== String(pin || '').trim()) {
+      return sendJson(res, 401, { ok: false, error: 'Incorrect 4-digit PIN passcode.' });
+    }
+    const { passcode_pin, ...safeProfile } = target;
+    return sendJson(res, 200, {
+      ok: true,
+      profile: { ...safeProfile, has_pin: Boolean(passcode_pin) },
+    });
+  }
+
+  // 1d. POST /api/media/upload — Rate-Limited & Size-Capped Upload via Admin Client
   if (req.method === 'POST' && url.pathname === '/api/media/upload') {
-    const body = await parseBody(req);
+    if (!checkRateLimit(req, 'media_upload', 15)) {
+      return sendJson(res, 429, { error: 'Upload rate limit reached (max 15/min).' });
+    }
+    let body;
+    try {
+      body = await parseBody(req);
+    } catch (err) {
+      if (err && err.message === 'PAYLOAD_TOO_LARGE') {
+        return sendJson(res, 413, { error: 'Media file exceeds 8MB limit.' });
+      }
+      return sendJson(res, 400, { error: 'Invalid upload body' });
+    }
     const { dataUrl, ext = 'webp' } = body;
     if (!dataUrl || typeof dataUrl !== 'string') {
       return sendJson(res, 400, { error: 'Missing dataUrl' });
@@ -385,17 +623,12 @@ const server = http.createServer(async (req, res) => {
     let recipientEmail = null;
     try {
       if (recipientId) {
-        const { data } = await supabaseAdmin.storage
-          .from('item-media')
-          .download('cloud-db/state.json');
-        if (data) {
-          const parsed = JSON.parse(await data.text());
-          const foundProfile = (parsed.profiles || []).find(
-            (p) => p.id === recipientId
-          );
-          if (foundProfile && foundProfile.email) {
-            recipientEmail = foundProfile.email;
-          }
+        const parsed = await getCloudState();
+        const foundProfile = (parsed.profiles || []).find(
+          (p) => p.id === recipientId
+        );
+        if (foundProfile && foundProfile.email) {
+          recipientEmail = foundProfile.email;
         }
       }
 
@@ -481,14 +714,9 @@ const server = http.createServer(async (req, res) => {
     ];
     let cloudItems = [];
     try {
-      const { data } = await supabaseAdmin.storage
-        .from('item-media')
-        .download('cloud-db/state.json');
-      if (data) {
-        const parsed = JSON.parse(await data.text());
-        if (Array.isArray(parsed.items)) {
-          cloudItems = parsed.items.filter((i) => i && i.id && i.is_for_trade);
-        }
+      const parsed = await getCloudState();
+      if (Array.isArray(parsed.items)) {
+        cloudItems = parsed.items.filter((i) => i && i.id && i.is_for_trade);
       }
     } catch {
       // ignore
@@ -529,17 +757,12 @@ const server = http.createServer(async (req, res) => {
     let cloudItems = [];
     let wantedPosts = [];
     try {
-      const { data } = await supabaseAdmin.storage
-        .from('item-media')
-        .download('cloud-db/state.json');
-      if (data) {
-        const parsed = JSON.parse(await data.text());
-        if (Array.isArray(parsed.items)) {
-          cloudItems = parsed.items.filter((i) => i && i.id && i.is_for_trade);
-        }
-        if (Array.isArray(parsed.wantedPosts)) {
-          wantedPosts = parsed.wantedPosts;
-        }
+      const parsed = await getCloudState();
+      if (Array.isArray(parsed.items)) {
+        cloudItems = parsed.items.filter((i) => i && i.id && i.is_for_trade);
+      }
+      if (Array.isArray(parsed.wantedPosts)) {
+        wantedPosts = parsed.wantedPosts;
       }
     } catch {
       // ignore
@@ -649,12 +872,7 @@ ${wantedSection}
 
       let parsedCloud = null;
       try {
-        const { data } = await supabaseAdmin.storage
-          .from('item-media')
-          .download('cloud-db/state.json');
-        if (data) {
-          parsedCloud = JSON.parse(await data.text());
-        }
+        parsedCloud = await getCloudState();
       } catch {
         // ignore
       }

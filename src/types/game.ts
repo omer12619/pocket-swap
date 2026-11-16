@@ -75,6 +75,7 @@ export interface UserProfile {
   badges: string[];
   email?: string;
   passcode_pin?: string;
+  has_pin?: boolean;
 }
 
 export interface FriendConnection {
