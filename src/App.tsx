@@ -2532,9 +2532,17 @@ export function App() {
                 ref={filterDropdownRef}
                 className="space-y-2"
               >
-                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                <div
+                  className={`flex flex-wrap items-center gap-2 ${
+                    phoneFrameMode ? '' : 'sm:flex-nowrap'
+                  }`}
+                >
                   {/* Search Bar */}
-                  <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
+                  <div
+                    className={`relative min-w-[200px] ${
+                      phoneFrameMode ? 'w-full' : 'flex-1 w-full sm:w-auto'
+                    }`}
+                  >
                     <Search className="w-4 h-4 text-[#8C6D46] absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
@@ -3821,7 +3829,8 @@ export function App() {
                       (p) =>
                         p.id !== currentUser.id &&
                         p.id !== 'user-founder-01' &&
-                        p.display_name !== 'Cozy Trader'
+                        p.display_name !== 'Cozy Trader' &&
+                        !p.display_name.startsWith('Villager #')
                     ),
                   ]
                     .sort((a, b) => b.karma_points - a.karma_points)
