@@ -380,6 +380,18 @@ const server = http.createServer(async (req, res) => {
       `${baseUrl}/llms.txt`,
       `${baseUrl}/llms-full.txt`,
       `${baseUrl}/sitemap.xml`,
+      `${baseUrl}/feed.xml`,
+      `${baseUrl}/alternatives/buy-nothing-alternative`,
+      `${baseUrl}/alternatives/bunz-alternative`,
+      `${baseUrl}/alternatives/craigslist-barter-alternative`,
+      ...categories.map(
+        (cat) =>
+          `${baseUrl}/swap/${cat
+            .toLowerCase()
+            .replace(/&/g, 'and')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '')}`
+      ),
       ...categories.map(
         (cat) => `${baseUrl}/?category=${encodeURIComponent(cat)}`
       ),
@@ -862,11 +874,22 @@ const server = http.createServer(async (req, res) => {
     const nowIso = new Date().toISOString();
     const urls = [
       `  <url><loc>${baseUrl}/</loc><lastmod>${nowIso}</lastmod><changefreq>hourly</changefreq><priority>1.0</priority></url>`,
+      `  <url><loc>${baseUrl}/alternatives/buy-nothing-alternative</loc><lastmod>${nowIso}</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>`,
+      `  <url><loc>${baseUrl}/alternatives/bunz-alternative</loc><lastmod>${nowIso}</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>`,
+      `  <url><loc>${baseUrl}/alternatives/craigslist-barter-alternative</loc><lastmod>${nowIso}</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>`,
+      ...categories.map((cat) => {
+        const slug = cat
+          .toLowerCase()
+          .replace(/&/g, 'and')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '');
+        return `  <url><loc>${baseUrl}/swap/${slug}</loc><lastmod>${nowIso}</lastmod><changefreq>daily</changefreq><priority>0.85</priority></url>`;
+      }),
       ...categories.map(
         (cat) =>
           `  <url><loc>${baseUrl}/?category=${encodeURIComponent(
             cat
-          )}</loc><lastmod>${nowIso}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`
+          )}</loc><lastmod>${nowIso}</lastmod><changefreq>daily</changefreq><priority>0.75</priority></url>`
       ),
       ...cloudItems.map(
         (item) =>
@@ -884,6 +907,52 @@ const server = http.createServer(async (req, res) => {
       'Cache-Control': 'public, max-age=600',
     });
     return res.end(xml);
+  }
+
+  // 4b-rss. GET /feed.xml — Public RSS 2.0 Feed of New Local Listings
+  if (req.method === 'GET' && url.pathname === '/feed.xml') {
+    const baseUrl = 'https://pocket-swap.onrender.com';
+    const parsed = await getCloudState();
+    const activeItems = (Array.isArray(parsed.items) ? parsed.items : [])
+      .filter((i) => i && i.id && i.is_for_trade)
+      .slice(0, 30);
+
+    const escapeXml = (str = '') =>
+      String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    const itemsXml = activeItems
+      .map(
+        (i) => `  <item>
+    <title>${escapeXml(i.title)} (${escapeXml(i.category)})</title>
+    <link>${baseUrl}/?item=${encodeURIComponent(i.id)}</link>
+    <guid>${baseUrl}/?item=${encodeURIComponent(i.id)}</guid>
+    <description>${escapeXml(
+      `${i.description || i.title} — Location: ${
+        i.location_name
+      } • Wants: ${i.wishlist_hint || 'Open to offers'}`
+    )}</description>
+    <pubDate>${new Date(i.created_at || Date.now()).toUTCString()}</pubDate>
+  </item>`
+      )
+      .join('\n');
+
+    const rss = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>PocketSwap — Live Local 0% Cash Swap Feed</title>
+  <link>${baseUrl}/</link>
+  <description>Latest local items up for 0% cash barter on PocketSwap.</description>
+${itemsXml}
+</channel>
+</rss>`;
+    res.writeHead(200, {
+      'Content-Type': 'application/rss+xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=300',
+    });
+    return res.end(rss);
   }
 
   // 4c. GET /llms.txt & /llms-full.txt — AI Search & LLM Discovery Endpoints (ChatGPT, Perplexity, Claude, Gemini)
@@ -1082,10 +1151,40 @@ ${wantedSection}
               `<meta name="twitter:image" content="${img}" />`
             );
         }
-      } else if (categoryParam) {
-        const cleanCat = escapeHtml(categoryParam);
-        const title = `Swap ${cleanCat} Locally (0% Cash Barter) — PocketSwap`;
-        const desc = `Browse and trade local ${cleanCat} items in your neighborhood with zero cash on PocketSwap.`;
+      } else if (
+        categoryParam ||
+        url.pathname.startsWith('/swap/') ||
+        url.pathname.startsWith('/alternatives/')
+      ) {
+        let title = 'PocketSwap — Cozy Local Item Trade-Off Game';
+        let desc =
+          'Swap real-life items in your neighborhood with 0% cash on PocketSwap.';
+        if (url.pathname === '/alternatives/buy-nothing-alternative') {
+          title =
+            'Best Buy Nothing Alternative (2026) — PocketSwap 0% Cash Local Swaps';
+          desc =
+            'Looking for a Buy Nothing alternative without Facebook? Trade items locally with a 20-slot Pocket Inventory, GPS Radar, and 4-digit Meetup PIN on PocketSwap.';
+        } else if (url.pathname === '/alternatives/bunz-alternative') {
+          title =
+            'Best Bunz App Alternative — PocketSwap Cozy Local Barter Game';
+          desc =
+            'Missing Bunz? Swap games, plants, books, vinyl, and gadgets locally with zero cash, live OpenStreetMap radar, and verified Karma on PocketSwap.';
+        } else if (url.pathname === '/alternatives/craigslist-barter-alternative') {
+          title =
+            'Safe Craigslist Barter Alternative — PocketSwap Neighborhood Swap App';
+          desc =
+            'Trade items locally without Craigslist spam. PocketSwap offers daytime Safe Meetup Zones, 4-digit Meetup PINs, and a Live Fairness Appraiser.';
+        } else {
+          const slugOrCat =
+            categoryParam ||
+            url.pathname
+              .replace('/swap/', '')
+              .replace(/-and-/g, ' & ')
+              .replace(/-/g, ' ');
+          const cleanCat = escapeHtml(slugOrCat);
+          title = `Swap ${cleanCat} Locally (0% Cash Barter) — PocketSwap`;
+          desc = `Browse and trade local ${cleanCat} items in your neighborhood with zero cash on PocketSwap.`;
+        }
         html = html
           .replace(/<title>.*?<\/title>/s, `<title>${title}</title>`)
           .replace(
@@ -1095,6 +1194,10 @@ ${wantedSection}
           .replace(
             /<meta property="og:title" content=".*?" \/>/,
             `<meta property="og:title" content="${title}" />`
+          )
+          .replace(
+            /<meta property="og:description" content=".*?" \/>/,
+            `<meta property="og:description" content="${desc}" />`
           );
       }
 

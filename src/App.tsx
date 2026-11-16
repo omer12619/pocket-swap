@@ -542,6 +542,24 @@ export function App() {
     const sharedTab = params.get('tab') as ActiveTab | null;
     const refUsername = params.get('ref');
 
+    // Support clean programmatic SEO URLs (/swap/gaming, /swap/home-and-cozy, etc.)
+    const pathLower = window.location.pathname.toLowerCase();
+    if (pathLower.startsWith('/swap/')) {
+      const slug = pathLower.replace('/swap/', '').replace(/\/$/, '');
+      const matchedCat = CATEGORIES.find(
+        (c) =>
+          c
+            .toLowerCase()
+            .replace(/&/g, 'and')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '') === slug
+      );
+      if (matchedCat) {
+        setSelectedCategory(matchedCat);
+        setActiveTab('explore');
+      }
+    }
+
     if (
       sharedTab &&
       ['explore', 'radar', 'pocket', 'trades', 'passport'].includes(sharedTab)
